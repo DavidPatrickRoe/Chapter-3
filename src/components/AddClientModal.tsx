@@ -104,7 +104,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                     }}
                     className="flex items-center space-x-2 p-2.5 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 transition-all text-left"
                   >
-                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${admin.avatarColor} text-white font-bold text-[10px] flex items-center justify-center text-center leading-none select-none shrink-0`}>
+                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${admin.avatarColor} text-white font-bold text-[12px] flex items-center justify-center text-center leading-none select-none shrink-0 pt-[1px]`}>
                       {admin.initials}
                     </div>
                     <div>

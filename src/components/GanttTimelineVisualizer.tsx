@@ -311,12 +311,12 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                         {assignee ? (
                           <div
                             title={assignee.name}
-                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${assignee.avatarColor} text-white font-bold text-[10px] flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0`}
+                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${assignee.avatarColor} text-white font-bold text-[13.5px] flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0 pt-0.5`}
                           >
                             {assignee.initials}
                           </div>
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold flex items-center justify-center text-center leading-none select-none shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-[13px] font-bold flex items-center justify-center text-center leading-none select-none shrink-0 pt-0.5">
                             --
                           </div>
                         )}
@@ -412,7 +412,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
             return (
               <div key={member.id} className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${member.avatarColor} text-white font-bold text-xs flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0`}>
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${member.avatarColor} text-white font-bold text-[16px] flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0 pt-0.5`}>
                     {member.initials}
                   </div>
                   <div>

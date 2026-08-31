@@ -175,7 +175,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
                   <div
                     key={member.id}
                     title={`${member.name} (${member.role})`}
-                    className={`inline-block w-6 h-6 rounded-full ring-2 ring-white bg-gradient-to-br ${member.avatarColor} text-white font-bold text-[9px] flex items-center justify-center text-center leading-none select-none shrink-0`}
+                    className={`inline-block w-6 h-6 rounded-full ring-2 ring-white bg-gradient-to-br ${member.avatarColor} text-white font-bold text-[12px] flex items-center justify-center text-center leading-none select-none shrink-0 pt-[1px]`}
                   >
                     {member.initials}
                   </div>

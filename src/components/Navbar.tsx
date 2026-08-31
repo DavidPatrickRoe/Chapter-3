@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 className="flex items-center space-x-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700/90 rounded-xl px-3 py-1.5 transition-all text-left group"
               >
-                <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${currentUser.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-xs shadow shrink-0`}>
+                <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${currentUser.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-[16px] pt-0.5 shadow shrink-0`}>
                   {currentUser.initials}
                 </div>
                 <div className="hidden md:block">
@@ -195,7 +195,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           }`}
                         >
                           <div className="flex items-center space-x-2.5">
-                            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${member.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-xs shadow-sm shrink-0`}>
+                            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${member.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-[16px] pt-0.5 shadow-sm shrink-0`}>
                               {member.initials}
                             </div>
                             <div>
