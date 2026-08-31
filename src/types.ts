@@ -39,6 +39,7 @@ export interface Task {
   deliverableUrl?: string;
   notes: TaskNote[];
   isRecurring?: boolean;
+  phase?: string; // e.g. "Phase 1: Discovery", "Phase 2: Strategy", etc.
   completedAt?: string | null;
   isArchivedFromFeed?: boolean; // When true, hidden from priority feed by EOD cleanup, preserved in client history
   createdAt?: string;
@@ -55,6 +56,7 @@ export interface Client {
   startDate?: string;
   targetEndDate?: string;
   prospectingStage?: ProspectingStage;
+  phases?: string[]; // Custom defined phases for SOW grouping
   tasks: Task[];
 }
 

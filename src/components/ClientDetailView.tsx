@@ -25,7 +25,8 @@ import {
   Lock,
   ChevronDown,
   ChevronUp,
-  Link as LinkIcon
+  Link as LinkIcon,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Client, Task, TaskPriority, TaskStatus, TeamMember, TaskNote } from '../types';
 import { getProjectCompletionStats, getProgressBarColor, formatDate, isOverdue, isDueToday } from '../utils/helpers';
@@ -64,13 +65,14 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   onPromptWonProspect
 }) => {
   const isAdmin = currentUser.role === 'Admin';
-  const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'visualizer'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'sow'>('tasks');
   const [isEditingSummary, setIsEditingSummary] = useState(false);
   const [summaryText, setSummaryText] = useState(client.projectSummary);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
   // New task form state
   const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskPhase, setNewTaskPhase] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('Medium');
   const [newTaskDueDate, setNewTaskDueDate] = useState(() => {
     const d = new Date();
@@ -124,12 +126,16 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     e.preventDefault();
     if (!newTaskDesc.trim()) return;
 
+    const availablePhases = client.phases && client.phases.length > 0 ? client.phases : ['Phase 1: Discovery', 'Phase 2: Strategy & Design', 'Phase 3: Execution & Delivery'];
+    const chosenPhase = newTaskPhase || availablePhases[0];
+
     onAddTask(client.id, {
       description: newTaskDesc.trim(),
       priority: newTaskPriority,
       dueDate: newTaskDueDate,
       assignedTo: newTaskAssignee || null,
       status: 'Not Started',
+      phase: chosenPhase,
       deliverableUrl: newTaskDeliverable.trim() || undefined,
       isRecurring: newTaskRecurring
     });
@@ -138,6 +144,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     setNewTaskDesc('');
     setNewTaskDeliverable('');
     setNewTaskPriority('Medium');
+    setNewTaskPhase('');
     setNewTaskRecurring(false);
     setIsAddTaskModalOpen(false);
   };
@@ -396,15 +403,18 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setActiveTab('visualizer')}
+            onClick={() => setActiveTab('sow')}
             className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
-              activeTab === 'visualizer'
-                ? 'bg-gradient-to-r from-sky-600 to-teal-600 text-white shadow-md shadow-sky-900/20'
+              activeTab === 'sow'
+                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-900/20'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-teal-400" />
-            <span>Gemini AI Visualizer Tab</span>
+            <FileSpreadsheet className="w-4 h-4 text-sky-300" />
+            <span>SOW</span>
+            <span className="bg-white/20 text-white px-2 py-0.2 rounded-full text-[10px]">
+              {client.tasks.length}
+            </span>
           </button>
         </div>
 
@@ -726,9 +736,18 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Gemini AI Visualizer Tab */}
-        {activeTab === 'visualizer' && (
-          <GanttTimelineVisualizer client={client} teamMembers={teamMembers} />
+        {/* Tab 3: SOW Gantt Timeline & Phase Board */}
+        {activeTab === 'sow' && (
+          <GanttTimelineVisualizer 
+            client={client} 
+            currentUser={currentUser}
+            teamMembers={teamMembers}
+            onAddTask={onAddTask}
+            onUpdateClient={onUpdateClient}
+            onUpdateTaskStatus={onUpdateTaskStatus}
+            onUpdateTaskAssignee={onUpdateTaskAssignee}
+            onDeleteTask={onDeleteTask}
+          />
         )}
 
       </div>
@@ -763,6 +782,21 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                   onChange={(e) => setNewTaskDesc(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                  SOW Phase
+                </label>
+                <select
+                  value={newTaskPhase || (client.phases && client.phases[0]) || 'Phase 1: Discovery'}
+                  onChange={(e) => setNewTaskPhase(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold"
+                >
+                  {((client.phases && client.phases.length > 0) ? client.phases : ['Phase 1: Discovery', 'Phase 2: Strategy & Design', 'Phase 3: Execution & Delivery']).map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

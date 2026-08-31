@@ -50,6 +50,7 @@ export const INITIAL_CLIENTS: Client[] = [
     startDate: '2026-08-01',
     targetEndDate: '2026-10-15',
     projectSummary: 'Comprehensive Go-To-Market & Enterprise Sales Repositioning. Conducting customer buyer persona interviews, revising pricing tier structures for enterprise hospital systems, and producing battle-tested sales collateral for sales reps.',
+    phases: ['Phase 1: Discovery & Research', 'Phase 2: Strategy & Collateral', 'Phase 3: Sales Enablement & Launch'],
     tasks: [
       {
         id: 't-np-1',
@@ -59,6 +60,7 @@ export const INITIAL_CLIENTS: Client[] = [
         priority: 'High',
         dueDate: '2026-09-02',
         status: 'In Progress',
+        phase: 'Phase 1: Discovery & Research',
         deliverableUrl: 'https://docs.google.com/document/d/1NovaPulse-ICP-Findings',
         isRecurring: false,
         notes: [
