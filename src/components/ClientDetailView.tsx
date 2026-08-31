@@ -210,11 +210,28 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               {client.name}
             </h1>
 
-            {client.leadConsultant && (
-              <p className="text-xs text-slate-500">
-                Lead Practice Consultant: <strong className="text-slate-800 font-semibold">{client.leadConsultant}</strong>
-              </p>
-            )}
+            {/* Changeable Lead Practice Consultant */}
+            <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1 text-xs">
+              <span className="text-slate-500 font-medium">Lead Practice Consultant:</span>
+              <select
+                value={client.leadConsultant || 'All'}
+                onChange={(e) => {
+                  onUpdateClient({
+                    ...client,
+                    leadConsultant: e.target.value
+                  });
+                }}
+                className="bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer transition-colors"
+                title="Change Lead Practice Consultant at any time"
+              >
+                <option value="All">All</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Admin Archival & Status Controls */}
@@ -447,10 +464,14 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                               </span>
                             )}
 
-                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${
-                              overdue ? 'bg-rose-50 text-rose-700 font-bold' : 'text-slate-500'
+                            <span className={`inline-flex items-center space-x-1 text-xs px-2.5 py-1 rounded-lg border ${
+                              overdue
+                                ? 'bg-rose-100 text-rose-800 border-rose-400 font-bold shadow-xs'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 font-medium'
                             }`}>
-                              Due: {formatDate(task.dueDate)} {overdue && '(Overdue)'}
+                              <Clock className={`w-3.5 h-3.5 shrink-0 ${overdue ? 'text-rose-700' : 'text-slate-400'}`} />
+                              <span>Due: {formatDate(task.dueDate)}</span>
+                              {overdue && <span className="text-rose-700 font-black uppercase ml-0.5">(OVERDUE)</span>}
                             </span>
                           </div>
 

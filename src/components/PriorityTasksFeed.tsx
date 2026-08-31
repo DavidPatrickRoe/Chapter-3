@@ -328,16 +328,16 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                       Target Due Date
                     </label>
-                    <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border font-semibold ${
+                    <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-xs ${
                       overdue
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        ? 'bg-rose-100 text-rose-800 border-rose-400 font-bold shadow-xs'
                         : dueToday
-                        ? 'bg-amber-50 text-amber-800 border-amber-200'
-                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200 font-semibold'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 font-semibold'
                     }`}>
-                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <Clock className={`w-3.5 h-3.5 shrink-0 ${overdue ? 'text-rose-700' : 'text-slate-400'}`} />
                       <span>{formatDate(task.dueDate)}</span>
-                      {overdue && <span className="text-[9px] font-black uppercase text-rose-600 bg-rose-200/60 px-1 rounded">Overdue</span>}
+                      {overdue && <span className="text-rose-700 font-black uppercase tracking-wide ml-0.5">(OVERDUE)</span>}
                       {dueToday && <span className="text-[9px] font-black uppercase text-amber-700 bg-amber-200/60 px-1 rounded">Today</span>}
                     </div>
                   </div>

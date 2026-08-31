@@ -461,6 +461,7 @@ export default function App() {
                     client={client}
                     teamMembers={teamMembers}
                     onSelectClient={(c) => setSelectedClient(c)}
+                    onUpdateClient={handleUpdateClient}
                   />
                 ))
               )}

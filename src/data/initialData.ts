@@ -264,7 +264,7 @@ export const INITIAL_CLIENTS: Client[] = [
         description: 'Develop Municipal RFP Win-Theme Strategy and Bid Evaluation Template',
         assignedTo: 'mj@chapter3.ca',
         priority: 'High',
-        dueDate: '2026-09-02',
+        dueDate: '2026-08-28',
         status: 'In Progress',
         deliverableUrl: 'https://docs.google.com/document/d/Lumina-RFP-Win-Themes',
         isRecurring: false,
@@ -331,7 +331,7 @@ export const INITIAL_CLIENTS: Client[] = [
     type: 'Internal',
     status: 'Active',
     industry: 'Management Consulting',
-    leadConsultant: 'David Roe',
+    leadConsultant: 'All',
     startDate: '2026-01-01',
     projectSummary: 'Chapter 3 firm-wide initiatives, internal sales collateral updates, website case studies publication, recruiting pipeline, and consulting framework standardization.',
     tasks: [

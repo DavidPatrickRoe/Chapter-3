@@ -15,7 +15,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Client, Task, TeamMember } from '../types';
-import { formatDate, getProjectCompletionStats, PRIORITY_WEIGHTS } from '../utils/helpers';
+import { formatDate, getProjectCompletionStats, PRIORITY_WEIGHTS, isOverdue } from '../utils/helpers';
 
 interface GanttTimelineVisualizerProps {
   client: Client;
@@ -285,6 +285,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
             displayTasks.map((task, index) => {
               const isDone = task.status === 'Complete';
               const isProg = task.status === 'In Progress';
+              const overdue = isOverdue(task.dueDate, task.status);
               const assignee = teamMembers.find(m => m.email === task.assignedTo);
               
               // Priority bar styling
@@ -310,12 +311,12 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                         {assignee ? (
                           <div
                             title={assignee.name}
-                            className={`w-7 h-7 rounded-lg bg-gradient-to-br ${assignee.avatarColor} text-white font-bold text-[10px] flex items-center justify-center shadow-xs shrink-0`}
+                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${assignee.avatarColor} text-white font-bold text-[10px] flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0`}
                           >
                             {assignee.initials}
                           </div>
                         ) : (
-                          <div className="w-7 h-7 rounded-lg bg-slate-200 text-slate-500 text-[10px] font-bold flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-[10px] font-bold flex items-center justify-center text-center leading-none select-none shrink-0">
                             --
                           </div>
                         )}
@@ -325,10 +326,13 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                         <p className={`text-xs font-bold truncate ${isDone ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
                           {task.description}
                         </p>
-                        <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
+                        <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5 flex-wrap">
                           <span>{assignee ? assignee.name : 'Unassigned'}</span>
                           <span>•</span>
-                          <span>Due: <strong className="text-slate-600 font-semibold">{formatDate(task.dueDate)}</strong></span>
+                          <span className={overdue ? 'text-rose-700 font-bold' : ''}>
+                            Due: <strong className={overdue ? 'text-rose-700 font-bold' : 'text-slate-600 font-semibold'}>{formatDate(task.dueDate)}</strong>
+                            {overdue && <span className="ml-1 text-rose-700 font-extrabold uppercase">(OVERDUE)</span>}
+                          </span>
                           {task.deliverableUrl && (
                             <>
                               <span>•</span>
@@ -408,7 +412,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
             return (
               <div key={member.id} className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${member.avatarColor} text-white font-bold text-xs flex items-center justify-center shadow-xs`}>
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${member.avatarColor} text-white font-bold text-xs flex items-center justify-center text-center leading-none select-none shadow-xs shrink-0`}>
                     {member.initials}
                   </div>
                   <div>

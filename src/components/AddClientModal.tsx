@@ -104,7 +104,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                     }}
                     className="flex items-center space-x-2 p-2.5 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 transition-all text-left"
                   >
-                    <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${admin.avatarColor} text-white font-bold text-[10px] flex items-center justify-center shrink-0`}>
+                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${admin.avatarColor} text-white font-bold text-[10px] flex items-center justify-center text-center leading-none select-none shrink-0`}>
                       {admin.initials}
                     </div>
                     <div>
@@ -195,6 +195,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                   onChange={(e) => setLeadConsultant(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium"
                 >
+                  <option value="All">All (All Practice Leads)</option>
                   {teamMembers.map(m => (
                     <option key={m.id} value={m.name}>{m.name} ({m.role})</option>
                   ))}

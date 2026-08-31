@@ -17,12 +17,14 @@ interface ClientCardProps {
   client: Client;
   teamMembers: TeamMember[];
   onSelectClient: (client: Client) => void;
+  onUpdateClient?: (client: Client) => void;
 }
 
 export const ClientCard: React.FC<ClientCardProps> = ({
   client,
   teamMembers,
-  onSelectClient
+  onSelectClient,
+  onUpdateClient
 }) => {
   const isProject = client.type === 'Project';
   const isRetainer = client.type === 'Retainer';
@@ -163,9 +165,9 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           </div>
         )}
 
-        {/* Assigned Team Avatars & Lead Consultant */}
-        <div className="flex items-center justify-between pt-1 text-xs">
-          <div className="flex items-center space-x-1.5">
+        {/* Assigned Team Avatars & Changeable Lead Consultant */}
+        <div className="flex items-center justify-between pt-1 text-xs gap-2">
+          <div className="flex items-center space-x-1.5 shrink-0">
             <Users className="w-3.5 h-3.5 text-slate-400" />
             <div className="flex -space-x-1.5 overflow-hidden">
               {assignedTeam.length > 0 ? (
@@ -173,7 +175,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
                   <div
                     key={member.id}
                     title={`${member.name} (${member.role})`}
-                    className={`inline-block w-6 h-6 rounded-full ring-2 ring-white bg-gradient-to-br ${member.avatarColor} text-white font-bold text-[9px] flex items-center justify-center`}
+                    className={`inline-block w-6 h-6 rounded-full ring-2 ring-white bg-gradient-to-br ${member.avatarColor} text-white font-bold text-[9px] flex items-center justify-center text-center leading-none select-none shrink-0`}
                   >
                     {member.initials}
                   </div>
@@ -184,11 +186,35 @@ export const ClientCard: React.FC<ClientCardProps> = ({
             </div>
           </div>
 
-          {client.leadConsultant && (
-            <span className="text-[11px] text-slate-500 font-medium truncate max-w-[130px]" title={`Lead: ${client.leadConsultant}`}>
-              Lead: <strong className="text-slate-700 font-semibold">{client.leadConsultant.split(' ')[0]}</strong>
-            </span>
-          )}
+          {/* Changeable Lead Practice Consultant Dropdown */}
+          <div 
+            className="flex items-center space-x-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">Lead:</span>
+            <select
+              value={client.leadConsultant || 'All'}
+              onChange={(e) => {
+                e.stopPropagation();
+                if (onUpdateClient) {
+                  onUpdateClient({
+                    ...client,
+                    leadConsultant: e.target.value
+                  });
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer max-w-[130px] truncate transition-colors"
+              title="Change Lead Practice Consultant at any time"
+            >
+              <option value="All">All</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.name}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     </div>
