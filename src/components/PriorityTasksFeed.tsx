@@ -113,6 +113,8 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
         return 'bg-amber-100 text-amber-800 border-amber-300 font-semibold';
       case 'Low':
         return 'bg-sky-100 text-sky-700 border-sky-300 font-medium';
+      case 'Unassigned':
+        return 'bg-slate-100 text-slate-600 border-slate-300 font-medium';
     }
   };
 

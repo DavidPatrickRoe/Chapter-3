@@ -4,6 +4,7 @@ export const PRIORITY_WEIGHTS: Record<TaskPriority, number> = {
   High: 3,
   Medium: 2,
   Low: 1,
+  Unassigned: 0,
 };
 
 export function getProjectCompletionStats(client: Client) {

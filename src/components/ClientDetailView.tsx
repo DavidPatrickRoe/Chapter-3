@@ -78,7 +78,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>('');
-  const [newTaskRecurring, setNewTaskRecurring] = useState(client.type !== 'Project');
+  const [newTaskRecurring, setNewTaskRecurring] = useState(false);
   const [newTaskDeliverable, setNewTaskDeliverable] = useState('');
 
   // Expandable notes state
@@ -138,6 +138,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     setNewTaskDesc('');
     setNewTaskDeliverable('');
     setNewTaskPriority('Medium');
+    setNewTaskRecurring(false);
     setIsAddTaskModalOpen(false);
   };
 
@@ -423,7 +424,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                 />
 
                 <div className="flex items-center space-x-1 text-xs">
-                  {(['All', 'High', 'Medium', 'Low'] as const).map((p) => (
+                  {(['All', 'High', 'Medium', 'Low', 'Unassigned'] as const).map((p) => (
                     <button
                       key={p}
                       onClick={() => setPriorityFilter(p)}
@@ -474,7 +475,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                             <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md border ${
                               task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
                               task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                              'bg-sky-100 text-sky-700 border-sky-300'
+                              task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
+                              'bg-slate-100 text-slate-600 border-slate-300'
                             }`}>
                               {task.priority} Priority
                             </span>
@@ -776,6 +778,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                     <option value="High">High Priority</option>
                     <option value="Medium">Medium Priority</option>
                     <option value="Low">Low Priority</option>
+                    <option value="Unassigned">Unassigned</option>
                   </select>
                 </div>
 

@@ -293,7 +293,8 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                 if (isDone) return 'bg-teal-500 text-white';
                 if (task.priority === 'High') return 'bg-rose-500 text-white';
                 if (task.priority === 'Medium') return 'bg-amber-500 text-white';
-                return 'bg-sky-500 text-white';
+                if (task.priority === 'Low') return 'bg-sky-500 text-white';
+                return 'bg-slate-400 text-white';
               };
 
               return (
@@ -358,7 +359,8 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                       <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
                         task.priority === 'High' ? 'bg-rose-100 text-rose-700' :
                         task.priority === 'Medium' ? 'bg-amber-100 text-amber-800' :
-                        'bg-sky-100 text-sky-700'
+                        task.priority === 'Low' ? 'bg-sky-100 text-sky-700' :
+                        'bg-slate-100 text-slate-600'
                       }`}>
                         {task.priority}
                       </span>

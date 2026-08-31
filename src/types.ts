@@ -6,7 +6,7 @@ export type ProspectingStage = 'Discovery' | 'Active Deal' | 'Quoted' | 'Won' | 
 
 export type ClientStatus = 'Active' | 'Inactive';
 
-export type TaskPriority = 'High' | 'Medium' | 'Low';
+export type TaskPriority = 'High' | 'Medium' | 'Low' | 'Unassigned';
 
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete' | 'Cancelled';
 
