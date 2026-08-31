@@ -1,6 +1,8 @@
 export type Role = 'Admin' | 'User';
 
-export type ClientType = 'Project' | 'Retainer' | 'Internal';
+export type ClientType = 'Project' | 'Retainer' | 'Internal' | 'Prospecting';
+
+export type ProspectingStage = 'Discovery' | 'Active Deal' | 'Quoted' | 'Won' | 'Lost';
 
 export type ClientStatus = 'Active' | 'Inactive';
 
@@ -52,8 +54,9 @@ export interface Client {
   leadConsultant?: string;
   startDate?: string;
   targetEndDate?: string;
+  prospectingStage?: ProspectingStage;
   tasks: Task[];
 }
 
-export type ClientCategoryFilter = 'All' | 'Project' | 'Retainer' | 'Internal';
+export type ClientCategoryFilter = 'All' | 'Project' | 'Retainer' | 'Internal' | 'Prospecting';
 export type PriorityTasksFilter = 'all' | 'mine';

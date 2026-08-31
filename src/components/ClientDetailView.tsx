@@ -30,6 +30,7 @@ import {
 import { Client, Task, TaskPriority, TaskStatus, TeamMember, TaskNote } from '../types';
 import { getProjectCompletionStats, getProgressBarColor, formatDate, isOverdue, isDueToday } from '../utils/helpers';
 import { GanttTimelineVisualizer } from './GanttTimelineVisualizer';
+import { ProspectingTimeline } from './ProspectingTimeline';
 
 interface ClientDetailViewProps {
   client: Client;
@@ -44,6 +45,7 @@ interface ClientDetailViewProps {
   onUpdateDeliverableUrl: (clientId: string, taskId: string, url: string) => void;
   onDeleteTask: (clientId: string, taskId: string) => void;
   onResetRecurringTask: (clientId: string, taskId: string) => void;
+  onPromptWonProspect?: (client: Client) => void;
 }
 
 export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
@@ -58,7 +60,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   onAddNote,
   onUpdateDeliverableUrl,
   onDeleteTask,
-  onResetRecurringTask
+  onResetRecurringTask,
+  onPromptWonProspect
 }) => {
   const isAdmin = currentUser.role === 'Admin';
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'visualizer'>('tasks');
@@ -183,14 +186,16 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           <div className="space-y-2">
             <div className="flex items-center space-x-2 flex-wrap gap-y-2">
               <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1 rounded-full border ${
-                client.type === 'Project' ? 'bg-sky-100 text-sky-800 border-sky-200' :
-                client.type === 'Retainer' ? 'bg-teal-100 text-teal-800 border-teal-200' :
-                'bg-purple-100 text-purple-800 border-purple-200'
+                client.type === 'Project' ? 'bg-blue-100 text-blue-900 border-blue-300' :
+                client.type === 'Retainer' ? 'bg-purple-100 text-purple-900 border-purple-300' :
+                client.type === 'Internal' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
+                'bg-orange-100 text-orange-950 border-orange-300'
               }`}>
                 {client.type === 'Project' && <FolderKanban className="w-3.5 h-3.5" />}
                 {client.type === 'Retainer' && <Repeat className="w-3.5 h-3.5" />}
                 {client.type === 'Internal' && <Building className="w-3.5 h-3.5" />}
-                <span>{client.type} Engagement</span>
+                {client.type === 'Prospecting' && <Sparkles className="w-3.5 h-3.5" />}
+                <span>{client.type === 'Prospecting' ? 'Prospecting Deal' : `${client.type} Engagement`}</span>
               </span>
 
               <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
@@ -209,6 +214,11 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-serif tracking-tight">
               {client.name}
             </h1>
+            {client.type === 'Prospecting' && (
+              <p className="text-xs font-bold text-orange-700 italic">
+                Exploring New Engagement
+              </p>
+            )}
 
             {/* Changeable Lead Practice Consultant */}
             <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1 text-xs">
@@ -234,9 +244,9 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Admin Archival & Status Controls */}
+          {/* Archival & Status Controls (Admins for all, or any user for Prospecting) */}
           <div className="flex items-center space-x-3 shrink-0">
-            {isAdmin ? (
+            {(isAdmin || client.type === 'Prospecting') ? (
               <button
                 type="button"
                 onClick={handleToggleClientStatus}
@@ -245,10 +255,10 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                     ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
                 }`}
-                title="Admin permission: Toggle client between Active and Archived/Inactive"
+                title={client.type === 'Prospecting' ? "Manual archive/unarchive for prospecting engagement" : "Admin permission: Toggle client between Active and Archived/Inactive"}
               >
                 <Archive className="w-4 h-4" />
-                <span>{client.status === 'Active' ? 'Set as Inactive / Archive' : 'Reactivate Client Card'}</span>
+                <span>{client.status === 'Active' ? (client.type === 'Prospecting' ? 'Archive Deal' : 'Set as Inactive / Archive') : 'Reactivate Client Card'}</span>
               </button>
             ) : (
               <div className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 rounded-xl text-slate-400 text-xs font-medium border border-slate-200">
@@ -258,6 +268,18 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Prospecting Visual Pipeline Banner (Interactive for any user) */}
+        {client.type === 'Prospecting' && (
+          <div className="bg-orange-50/90 rounded-3xl p-6 border-2 border-orange-500 shadow-sm">
+            <ProspectingTimeline
+              client={client}
+              onUpdateClient={onUpdateClient}
+              onPromptWonProspect={onPromptWonProspect}
+              compact={false}
+            />
+          </div>
+        )}
 
         {/* 2. Project Summary Section: Editable for Admins */}
         <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Building2, ShieldAlert, Sparkles, FolderKanban, Repeat, Building } from 'lucide-react';
 import { Client, ClientType, TeamMember } from '../types';
 
@@ -9,6 +9,7 @@ interface AddClientModalProps {
   teamMembers: TeamMember[];
   onAddClient: (newClient: Omit<Client, 'id' | 'tasks'>) => void;
   onSwitchToAdmin: (adminUser: TeamMember) => void;
+  initialValues?: Partial<Client> | null;
 }
 
 export const AddClientModal: React.FC<AddClientModalProps> = ({
@@ -17,7 +18,8 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   currentUser,
   teamMembers,
   onAddClient,
-  onSwitchToAdmin
+  onSwitchToAdmin,
+  initialValues
 }) => {
   const isAdmin = currentUser.role === 'Admin';
 
@@ -26,6 +28,25 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   const [industry, setIndustry] = useState('');
   const [leadConsultant, setLeadConsultant] = useState(currentUser.name);
   const [projectSummary, setProjectSummary] = useState('');
+
+  // Sync initial values if provided (e.g. from won prospect conversion)
+  useEffect(() => {
+    if (isOpen) {
+      if (initialValues) {
+        setName(initialValues.name || '');
+        setType(initialValues.type && initialValues.type !== 'Prospecting' ? initialValues.type : 'Project');
+        setIndustry(initialValues.industry || '');
+        setLeadConsultant(initialValues.leadConsultant || currentUser.name);
+        setProjectSummary(initialValues.projectSummary || '');
+      } else {
+        setName('');
+        setType('Project');
+        setIndustry('');
+        setLeadConsultant(currentUser.name);
+        setProjectSummary('');
+      }
+    }
+  }, [isOpen, initialValues, currentUser.name]);
 
   if (!isOpen) return null;
 
@@ -40,7 +61,8 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
       industry: industry.trim() || undefined,
       leadConsultant: leadConsultant || currentUser.name,
       projectSummary: projectSummary.trim(),
-      startDate: new Date().toISOString().split('T')[0]
+      startDate: new Date().toISOString().split('T')[0],
+      prospectingStage: type === 'Prospecting' ? 'Discovery' : undefined
     });
 
     // Reset form
@@ -54,7 +76,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -64,9 +86,13 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 font-serif">
-                Add New Client Engagement
+                {initialValues?.name ? 'Convert Won Deal to Client Card' : 'Add New Client Engagement'}
               </h3>
-              <p className="text-xs text-slate-500">Create bespoke client card for Chapter 3 consulting</p>
+              <p className="text-xs text-slate-500">
+                {initialValues?.name 
+                  ? 'Set up active project or retainer for won client engagement' 
+                  : 'Create bespoke client card for Chapter 3 consulting'}
+              </p>
             </div>
           </div>
 
@@ -139,11 +165,12 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1.5">
                 Engagement Model *
               </label>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
-                  { value: 'Project', label: 'Project', icon: FolderKanban, desc: 'Completion % & milestones' },
-                  { value: 'Retainer', label: 'Retainer', icon: Repeat, desc: 'Recurring monthly sprint' },
-                  { value: 'Internal', label: 'Internal', icon: Building, desc: 'Firm growth initiatives' },
+                  { value: 'Project', label: 'Project', icon: FolderKanban, desc: 'Completion % & milestones', selectedBorder: 'border-blue-500 bg-blue-50/80 text-blue-900 ring-blue-500' },
+                  { value: 'Retainer', label: 'Retainer', icon: Repeat, desc: 'Recurring monthly sprint', selectedBorder: 'border-purple-500 bg-purple-50/80 text-purple-900 ring-purple-500' },
+                  { value: 'Internal', label: 'Internal', icon: Building, desc: 'Firm growth initiatives', selectedBorder: 'border-emerald-500 bg-emerald-50/80 text-emerald-900 ring-emerald-500' },
+                  { value: 'Prospecting', label: 'Prospecting', icon: Sparkles, desc: 'Exploring New Engagement', selectedBorder: 'border-orange-500 bg-orange-50/80 text-orange-950 ring-orange-500' },
                 ].map((item) => {
                   const Icon = item.icon;
                   const isSelected = type === item.value;
@@ -152,15 +179,15 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
                       key={item.value}
                       type="button"
                       onClick={() => setType(item.value as ClientType)}
-                      className={`p-3 rounded-2xl border text-left transition-all ${
+                      className={`p-2.5 rounded-2xl border text-left transition-all ${
                         isSelected
-                          ? 'border-sky-500 bg-sky-50/70 shadow-xs ring-1 ring-sky-500'
+                          ? `shadow-xs ring-1 ${item.selectedBorder}`
                           : 'border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center space-x-1.5 mb-1">
-                        <Icon className={`w-4 h-4 ${isSelected ? 'text-sky-600' : 'text-slate-400'}`} />
-                        <span className={`text-xs font-bold ${isSelected ? 'text-sky-900' : 'text-slate-800'}`}>
+                        <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-900 font-bold' : 'text-slate-400'}`} />
+                        <span className="text-xs font-bold">
                           {item.label}
                         </span>
                       </div>
@@ -229,9 +256,9 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-900/20"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md shadow-slate-900/20"
               >
-                Create Client Card
+                {initialValues?.name ? 'Create Client Card' : 'Create Client Card'}
               </button>
             </div>
           </form>

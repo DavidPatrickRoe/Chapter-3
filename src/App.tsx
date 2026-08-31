@@ -78,6 +78,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState<boolean>(false);
+  const [wonProspectToConvert, setWonProspectToConvert] = useState<Partial<Client> | null>(null);
 
   // Sync selectedClient with live clients state
   const currentSelectedClient = selectedClient 
@@ -87,6 +88,18 @@ export default function App() {
   // Handler to update a client
   const handleUpdateClient = (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+
+  // Handler when a prospecting deal is Won to prompt creating a new client card
+  const handlePromptWonProspect = (prospectClient: Client) => {
+    setWonProspectToConvert({
+      name: prospectClient.name,
+      industry: prospectClient.industry,
+      leadConsultant: prospectClient.leadConsultant,
+      projectSummary: prospectClient.projectSummary,
+      type: 'Project'
+    });
+    setIsAddClientModalOpen(true);
   };
 
   // Handler to add a new client
@@ -361,6 +374,7 @@ export default function App() {
         onUpdateDeliverableUrl={handleUpdateDeliverableUrl}
         onDeleteTask={handleDeleteTask}
         onResetRecurringTask={handleResetRecurringTask}
+        onPromptWonProspect={handlePromptWonProspect}
       />
     );
   }
@@ -404,13 +418,13 @@ export default function App() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {showInactive
                       ? 'Past completed engagements and dormant retainer archives'
-                      : 'Active consulting projects, ongoing retainers, and internal practice initiatives'}
+                      : 'Active consulting projects, ongoing retainers, prospecting deals, and internal practice initiatives'}
                   </p>
                 </div>
 
-                {/* Category Pills: All, Project, Retainer, Internal */}
+                {/* Category Pills: All, Project, Retainer, Internal, Prospecting */}
                 <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto overflow-x-auto">
-                  {(['All', 'Project', 'Retainer', 'Internal'] as const).map((category) => (
+                  {(['All', 'Project', 'Retainer', 'Internal', 'Prospecting'] as const).map((category) => (
                     <button
                       key={category}
                       type="button"
@@ -462,6 +476,7 @@ export default function App() {
                     teamMembers={teamMembers}
                     onSelectClient={(c) => setSelectedClient(c)}
                     onUpdateClient={handleUpdateClient}
+                    onPromptWonProspect={handlePromptWonProspect}
                   />
                 ))
               )}
@@ -491,13 +506,17 @@ export default function App() {
       {/* Add Client Card Modal (Admin Only) */}
       <AddClientModal
         isOpen={isAddClientModalOpen}
-        onClose={() => setIsAddClientModalOpen(false)}
+        onClose={() => {
+          setIsAddClientModalOpen(false);
+          setWonProspectToConvert(null);
+        }}
         currentUser={currentUser}
         teamMembers={teamMembers}
         onAddClient={handleAddClient}
         onSwitchToAdmin={(admin) => {
           setCurrentUser(admin);
         }}
+        initialValues={wonProspectToConvert}
       />
 
     </div>

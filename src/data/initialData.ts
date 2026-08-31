@@ -3,10 +3,10 @@ import { Client, TeamMember } from '../types';
 export const TEAM_MEMBERS: TeamMember[] = [
   {
     id: 'mj',
-    name: 'Mary Jane Leslie',
+    name: 'MJ Leslie',
     email: 'mj@chapter3.ca',
     role: 'Admin',
-    title: 'Managing Partner & GTM Strategist',
+    title: 'Principal Consultant',
     avatarColor: 'from-sky-500 to-indigo-600',
     initials: 'MJ'
   },
@@ -15,7 +15,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     name: 'David Roe',
     email: 'david@chapter3.ca',
     role: 'Admin',
-    title: 'Managing Partner & Sales Lead',
+    title: 'Director of Business Operations',
     avatarColor: 'from-teal-500 to-emerald-700',
     initials: 'DR'
   },
@@ -24,7 +24,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     name: 'Megan Savary',
     email: 'megan@chapter3.ca',
     role: 'User',
-    title: 'Senior Marketing & Brand Consultant',
+    title: 'Communications Consultant',
     avatarColor: 'from-blue-600 to-cyan-600',
     initials: 'MS'
   },
@@ -33,7 +33,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     name: 'Asangi Jasenthuliyana',
     email: 'asangi@chapter3.ca',
     role: 'User',
-    title: 'Growth & Enablement Specialist',
+    title: 'Senior Marketing Consultant',
     avatarColor: 'from-amber-500 to-orange-600',
     initials: 'AJ'
   }
@@ -46,7 +46,7 @@ export const INITIAL_CLIENTS: Client[] = [
     type: 'Project',
     status: 'Active',
     industry: 'Healthcare Technology',
-    leadConsultant: 'Mary Jane Leslie',
+    leadConsultant: 'MJ Leslie',
     startDate: '2026-08-01',
     targetEndDate: '2026-10-15',
     projectSummary: 'Comprehensive Go-To-Market & Enterprise Sales Repositioning. Conducting customer buyer persona interviews, revising pricing tier structures for enterprise hospital systems, and producing battle-tested sales collateral for sales reps.',
@@ -65,7 +65,7 @@ export const INITIAL_CLIENTS: Client[] = [
           {
             id: 'n-np-1',
             authorEmail: 'mj@chapter3.ca',
-            authorName: 'Mary Jane Leslie',
+            authorName: 'MJ Leslie',
             text: 'Completed 6 out of 8 interviews. Key insight: buyer hesitation is mainly around HIPAA audit compliance workflows.',
             timestamp: '2026-08-29 14:20'
           },
@@ -154,7 +154,7 @@ export const INITIAL_CLIENTS: Client[] = [
           {
             id: 'n-np-6',
             authorEmail: 'mj@chapter3.ca',
-            authorName: 'Mary Jane Leslie',
+            authorName: 'MJ Leslie',
             text: 'Discovery audit complete. Legacy deck was too feature-heavy and lacked economic buyer ROI framing.',
             timestamp: '2026-08-10 12:00'
           }
@@ -253,7 +253,7 @@ export const INITIAL_CLIENTS: Client[] = [
     type: 'Project',
     status: 'Active',
     industry: 'Renewable Energy & Cleantech',
-    leadConsultant: 'Mary Jane Leslie',
+    leadConsultant: 'MJ Leslie',
     startDate: '2026-07-15',
     targetEndDate: '2026-09-30',
     projectSummary: 'Commercial Market Entry Strategy & Partner Channel Enablement. Developing value propositions for municipal and commercial real estate buyers, structuring referral incentives, and drafting sales playbooks.',
@@ -272,7 +272,7 @@ export const INITIAL_CLIENTS: Client[] = [
           {
             id: 'n-lum-1',
             authorEmail: 'mj@chapter3.ca',
-            authorName: 'Mary Jane Leslie',
+            authorName: 'MJ Leslie',
             text: 'Drafting core differentiators focusing on Lumina 15-year battery warranty and zero upfront CAPEX leasing.',
             timestamp: '2026-08-31 08:30'
           }
@@ -470,7 +470,7 @@ export const INITIAL_CLIENTS: Client[] = [
     type: 'Retainer',
     status: 'Inactive',
     industry: 'Cybersecurity & Compliance',
-    leadConsultant: 'Mary Jane Leslie',
+    leadConsultant: 'MJ Leslie',
     startDate: '2025-11-01',
     targetEndDate: '2026-05-31',
     projectSummary: 'Advisory Retainer for Fractional VP of Marketing & Enterprise Demand Generation. Handled quarterly pipeline audits and executive positioning for CISO buyers.',
@@ -487,6 +487,83 @@ export const INITIAL_CLIENTS: Client[] = [
         deliverableUrl: 'https://docs.google.com/presentation/d/Vanguard-H1-Review',
         isRecurring: false,
         notes: []
+      }
+    ]
+  },
+  {
+    id: 'c-aero-prospect',
+    name: 'AeroFlow Dynamics (Autonomous Drone Logistics)',
+    type: 'Prospecting',
+    status: 'Active',
+    industry: 'Aerospace & Industrial Robotics',
+    leadConsultant: 'David Roe',
+    startDate: '2026-08-15',
+    prospectingStage: 'Active Deal',
+    projectSummary: 'Exploring New Engagement for Series B commercial expansion. Scoping a 3-month Go-To-Market overhaul, outbound enterprise pitch deck for defense/logistics contractors, and pricing model restructuring.',
+    tasks: [
+      {
+        id: 't-ap-1',
+        clientId: 'c-aero-prospect',
+        description: 'Prepare Enterprise Commercial Readiness Proposal & Statement of Work',
+        assignedTo: 'david@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-03',
+        status: 'In Progress',
+        deliverableUrl: 'https://docs.google.com/document/d/AeroFlow-Draft-SOW',
+        isRecurring: false,
+        notes: [
+          {
+            id: 'n-ap-1',
+            authorEmail: 'david@chapter3.ca',
+            authorName: 'David Roe',
+            text: 'Completed initial scoping call with CEO. Budget approved for Q4 advisory kick-off.',
+            timestamp: '2026-08-30 15:10'
+          }
+        ]
+      },
+      {
+        id: 't-ap-2',
+        clientId: 'c-aero-prospect',
+        description: 'Conduct Competitive Fee Benchmark with Comparable Robotics Advisory Engagements',
+        assignedTo: 'mj@chapter3.ca',
+        priority: 'Medium',
+        dueDate: '2026-09-06',
+        status: 'Not Started',
+        isRecurring: false,
+        notes: []
+      }
+    ]
+  },
+  {
+    id: 'c-solaria-prospect',
+    name: 'Solaria BioSystems (Genomic Therapeutics)',
+    type: 'Prospecting',
+    status: 'Active',
+    industry: 'Biotechnology & Life Sciences',
+    leadConsultant: 'MJ Leslie',
+    startDate: '2026-08-20',
+    prospectingStage: 'Quoted',
+    projectSummary: 'Exploring New Engagement for Commercial Positioning & Investor Storytelling. Submitted customized 6-month advisory proposal for Series A fundraising narrative and pharma partnership decks.',
+    tasks: [
+      {
+        id: 't-sp-1',
+        clientId: 'c-solaria-prospect',
+        description: 'Send Formal Phase-1 Advisory Quote and Follow-up on Steering Committee Review',
+        assignedTo: 'mj@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-01',
+        status: 'In Progress',
+        deliverableUrl: 'https://docs.google.com/document/d/Solaria-Quote-v1',
+        isRecurring: false,
+        notes: [
+          {
+            id: 'n-sp-1',
+            authorEmail: 'mj@chapter3.ca',
+            authorName: 'MJ Leslie',
+            text: 'Quote delivered to VP Corporate Development on August 28th. Awaiting contract sign-off.',
+            timestamp: '2026-08-29 11:45'
+          }
+        ]
       }
     ]
   }
