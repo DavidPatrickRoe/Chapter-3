@@ -1,0 +1,7 @@
+{
+  "name": "Chapter 3 Project Management",
+  "description": "Bespoke project management and client operations platform for Chapter 3 sales and marketing consulting firm.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
