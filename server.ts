@@ -63,26 +63,163 @@ Provide your response in valid JSON matching this exact structure:
   "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"]
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
+      let responseText = '';
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+        responseText = response.text || '';
+      } catch (err) {
+        const fallbackRes = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+        responseText = fallbackRes.text || '';
+      }
 
-      const text = response.text;
-      if (!text) {
+      if (!responseText) {
         throw new Error('Empty response from Gemini');
       }
 
-      const parsed = JSON.parse(text);
+      const parsed = JSON.parse(responseText);
       return res.json({ success: true, mode: 'gemini', analysis: parsed });
     } catch (error: any) {
       console.error('Error generating project analysis:', error);
       return res.status(500).json({
         success: false,
         error: error.message || 'Failed to generate AI analysis'
+      });
+    }
+  });
+
+  // Gemini AI Rewrite Task as Action Item endpoint
+  app.post('/api/gemini/rewrite-action-item', async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Task description is required'
+        });
+      }
+
+      const rawInput = text.trim();
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      const heuristicRewrite = (input: string): string => {
+        let cleaned = input.trim().replace(/[.]+$/, '');
+        cleaned = cleaned.replace(/^(i need to|need to|we should|we need to|have to|please|can you|must|task to|todo:?|to-do:?|working on|gonna|want to|go and|hey can we|let's|lets)\s+/i, '');
+        
+        // Common colloquial replacements
+        cleaned = cleaned
+          .replace(/\bgonna\b/gi, 'going to')
+          .replace(/\bwanna\b/gi, 'want to')
+          .replace(/\bdeck\b/gi, 'pitch deck')
+          .replace(/\bmake sure\b/gi, 'verify')
+          .replace(/\blook into\b/gi, 'investigate');
+
+        const words = cleaned.split(/\s+/);
+        const firstWordLower = (words[0] || '').toLowerCase();
+        
+        if (firstWordLower.endsWith('ing') && firstWordLower.length > 4) {
+          const base = firstWordLower.replace(/ing$/, '');
+          const verbCandidate = (base.endsWith('tt') || base.endsWith('nn') || base.endsWith('pp'))
+            ? base.slice(0, -1)
+            : (base.endsWith('at') ? base + 'e' : base);
+          words[0] = verbCandidate.charAt(0).toUpperCase() + verbCandidate.slice(1);
+          cleaned = words.join(' ');
+        } else {
+          cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+        }
+
+        if (cleaned.length > 300) {
+          cleaned = cleaned.slice(0, 300).trimEnd();
+        }
+        return cleaned;
+      };
+
+      if (!apiKey) {
+        return res.json({
+          success: true,
+          mode: 'heuristic',
+          rewrittenText: heuristicRewrite(rawInput)
+        });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are an elite operational executive and management consultant at Chapter 3, a premium B2B sales and marketing consulting firm (https://chapter3.ca/).
+Rewrite the user's draft task description into a single, polished, condensed, action-oriented task item.
+
+Strict Transformation Rules:
+1. Output MUST be a single, direct, action-oriented task item starting with a strong imperative action verb (e.g., Conduct, Finalize, Develop, Author, Review, Synthesize, Implement, Align, Audit, Deliver, Produce, Design).
+2. Enforce a strong, professional, concise business tone.
+3. Replace all casual vernacular, slang, abbreviations, or spelling errors with correct, executive-ready consulting language.
+4. Ensure the rewritten text is actionable and clear, in as few words as possible while preserving the complete core meaning and intent of the source text.
+5. Do NOT include quotes, bullets, markdown, commentary, or introductory text. Return ONLY the rewritten task string.
+6. STRICT CONSTRAINT: Output MUST be strictly 300 characters or fewer.
+
+Draft Task Description:
+"${rawInput}"`;
+
+      let textResponse = '';
+      const callModelWithTimeout = async (modelName: string, timeoutMs: number = 10000): Promise<string> => {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+        );
+        const aiPromise = ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+        });
+        const response = await Promise.race([aiPromise, timeoutPromise]);
+        return response.text || '';
+      };
+
+      try {
+        textResponse = await callModelWithTimeout('gemini-3.1-flash-lite', 10000);
+      } catch (primaryErr: any) {
+        console.info('Flash-lite unavailable or timed out, trying gemini-3.8-flash:', primaryErr?.message || primaryErr);
+        try {
+          textResponse = await callModelWithTimeout('gemini-3.8-flash', 10000);
+        } catch (secondaryErr: any) {
+          console.info('Gemini models unavailable, applying intelligent action item transformation:', secondaryErr?.message || secondaryErr);
+          textResponse = heuristicRewrite(rawInput);
+        }
+      }
+
+      let rewritten = textResponse.trim();
+      rewritten = rewritten.replace(/^["'`]+|["'`]+$/g, '').trim();
+      
+      // Strict constraint: strictly 300 characters or fewer
+      if (rewritten.length > 300) {
+        rewritten = rewritten.slice(0, 300).trimEnd();
+      }
+
+      if (!rewritten) {
+        rewritten = heuristicRewrite(rawInput);
+      }
+
+      return res.json({
+        success: true,
+        mode: 'gemini',
+        rewrittenText: rewritten
+      });
+    } catch (error: any) {
+      console.error('Error rewriting task with Gemini:', error);
+      const { text } = req.body;
+      const rawInput = typeof text === 'string' ? text.trim() : '';
+      const fallback = rawInput ? (rawInput.charAt(0).toUpperCase() + rawInput.slice(1)).slice(0, 300) : '';
+      return res.json({
+        success: true,
+        mode: 'fallback',
+        rewrittenText: fallback,
+        warning: error.message
       });
     }
   });

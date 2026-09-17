@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Client, Task, TaskPriority, TaskStatus, TeamMember } from '../types';
 import { formatDate, getProjectCompletionStats, isOverdue } from '../utils/helpers';
+import { TaskDescriptionInput } from './TaskDescriptionInput';
 
 interface GanttTimelineVisualizerProps {
   client: Client;
@@ -32,6 +33,8 @@ interface GanttTimelineVisualizerProps {
   onUpdateClient?: (updatedClient: Client) => void;
   onUpdateTaskStatus?: (clientId: string, taskId: string, status: TaskStatus) => void;
   onUpdateTaskAssignee?: (clientId: string, taskId: string, assigneeEmail: string | null) => void;
+  onUpdateTaskPriority?: (clientId: string, taskId: string, priority: TaskPriority) => void;
+  onUpdateTaskDueDate?: (clientId: string, taskId: string, dueDate: string) => void;
   onDeleteTask?: (clientId: string, taskId: string) => void;
 }
 
@@ -53,6 +56,8 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
   onUpdateClient,
   onUpdateTaskStatus,
   onUpdateTaskAssignee,
+  onUpdateTaskPriority,
+  onUpdateTaskDueDate,
   onDeleteTask
 }) => {
   const isAdmin = currentUser.role === 'Admin';
@@ -91,23 +96,17 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
   const phases = (client.phases && client.phases.length > 0) ? client.phases : defaultPhases;
 
   const stats = getProjectCompletionStats(client);
-  const activeTasks = client.tasks.filter(t => t.status !== 'Complete' && t.status !== 'Cancelled');
-  const completedTasks = client.tasks.filter(t => t.status === 'Complete');
+  
+  // SOW Deliverables: tasks explicitly assigned to an SOW phase
+  const sowTasks = client.tasks.filter(t => Boolean(t.phase && phases.includes(t.phase)));
+  const sowActiveTasks = sowTasks.filter(t => t.status !== 'Complete' && t.status !== 'Cancelled');
+  const sowCompletedTasks = sowTasks.filter(t => t.status === 'Complete');
 
   // Helper to truncate text to a maximum character count before adding ellipsis
   const truncateText = (text: string, maxLength: number = 300): string => {
     if (!text) return '';
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength).trimEnd() + '...';
-  };
-
-  // Helper to get normalized phase for a task
-  const getTaskPhase = (task: Task): string => {
-    if (task.phase && phases.includes(task.phase)) {
-      return task.phase;
-    }
-    // Default to first phase
-    return phases[0] || 'Phase 1: Discovery';
   };
 
   // Open add task modal with preselected phase
@@ -184,8 +183,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
 
     // Also update all tasks that were in oldName to newName
     const updatedTasks = client.tasks.map(t => {
-      const currentPhase = getTaskPhase(t);
-      if (currentPhase === oldName) {
+      if (t.phase === oldName) {
         return { ...t, phase: newName };
       }
       return t;
@@ -210,7 +208,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
 
     // Move any tasks in the deleted phase to fallbackPhase
     const updatedTasks = client.tasks.map(t => {
-      if (getTaskPhase(t) === phaseToDelete) {
+      if (t.phase === phaseToDelete) {
         return { ...t, phase: fallbackPhase };
       }
       return t;
@@ -269,7 +267,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
     if (!onUpdateClient) return;
     const updatedTasks = client.tasks.map(t => {
       if (t.id === taskId) {
-        return { ...t, phase: targetPhase };
+        return { ...t, phase: targetPhase || undefined };
       }
       return t;
     });
@@ -279,9 +277,9 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
     });
   };
 
-  // Calculate consultant workload map
+  // Calculate consultant workload map based on SOW deliverables
   const workloadByMember = teamMembers.map(member => {
-    const memberTasks = client.tasks.filter(t => t.assignedTo === member.email);
+    const memberTasks = sowTasks.filter(t => t.assignedTo === member.email);
     const activeCount = memberTasks.filter(t => t.status !== 'Complete' && t.status !== 'Cancelled').length;
     const completedCount = memberTasks.filter(t => t.status === 'Complete').length;
     const highPriorityCount = memberTasks.filter(t => t.priority === 'High' && t.status !== 'Complete').length;
@@ -304,8 +302,8 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client,
-          activeTasks,
-          completedTasks,
+          activeTasks: sowActiveTasks,
+          completedTasks: sowCompletedTasks,
           teamMembers
         })
       });
@@ -323,15 +321,15 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
     } catch (err: any) {
       console.error('AI Analysis failed:', err);
       // Fallback local heuristic analysis
-      const highCount = activeTasks.filter(t => t.priority === 'High').length;
+      const highCount = sowActiveTasks.filter(t => t.priority === 'High').length;
       const score = Math.max(40, Math.min(95, 100 - highCount * 12));
       setAiAnalysis({
-        executiveSummary: `Project "${client.name}" has ${activeTasks.length} active deliverables underway across ${workloadByMember.length} team consultants, with a milestone completion rate of ${stats.percentage}%.`,
+        executiveSummary: `Project "${client.name}" has ${sowActiveTasks.length} active deliverables underway across ${workloadByMember.length} team consultants, with a milestone completion rate of ${stats.percentage}%.`,
         healthScore: score,
         healthStatus: score > 75 ? 'On Track' : 'Attention Needed',
         keyStrengths: [
           `Structured into ${phases.length} distinct SOW execution phases.`,
-          `${completedTasks.length} verified milestone deliverables completed.`
+          `${sowCompletedTasks.length} verified milestone deliverables completed.`
         ],
         bottlenecks: highCount > 0 
           ? [`${highCount} high-priority workstreams currently in progress requiring executive review.`]
@@ -487,7 +485,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                 selectedTimelineFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              All ({client.tasks.length})
+              All ({sowTasks.length})
             </button>
             <button
               onClick={() => setSelectedTimelineFilter('active')}
@@ -495,7 +493,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                 selectedTimelineFilter === 'active' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Active ({activeTasks.length})
+              Active ({sowActiveTasks.length})
             </button>
             <button
               onClick={() => setSelectedTimelineFilter('completed')}
@@ -503,7 +501,7 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                 selectedTimelineFilter === 'completed' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Completed ({completedTasks.length})
+              Completed ({sowCompletedTasks.length})
             </button>
           </div>
         </div>
@@ -511,8 +509,8 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
         {/* Phase-by-Phase Grouped Gantt Board */}
         <div className="space-y-6">
           {phases.map((phaseName, phaseIdx) => {
-            // Find tasks belonging to this phase
-            const phaseAllTasks = client.tasks.filter(t => getTaskPhase(t) === phaseName);
+            // Find tasks explicitly belonging to this SOW phase
+            const phaseAllTasks = sowTasks.filter(t => t.phase === phaseName);
             
             // Filter according to active/completed/all
             const phaseTasks = phaseAllTasks
@@ -720,14 +718,60 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                               </div>
 
                               <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-1.5 flex-wrap gap-y-1">
-                                <span className="font-medium text-slate-600">
-                                  {assignee ? assignee.name : 'Unassigned'}
-                                </span>
+                                {/* Assignee: Editable for Admin, Read-only for Users */}
+                                {isAdmin && onUpdateTaskAssignee ? (
+                                  <select
+                                    value={task.assignedTo || ''}
+                                    onChange={(e) => onUpdateTaskAssignee(client.id, task.id, e.target.value || null)}
+                                    title="Admin: Change task assignee"
+                                    className="text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 max-w-[130px] truncate focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {teamMembers.map(m => (
+                                      <option key={m.id} value={m.email}>{m.name}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="font-medium text-slate-600">
+                                    {assignee ? assignee.name : 'Unassigned'}
+                                  </span>
+                                )}
                                 <span>•</span>
-                                <span className={overdue ? 'text-rose-700 font-bold' : ''}>
-                                  Due: <strong className={overdue ? 'text-rose-700 font-bold' : 'text-slate-600 font-semibold'}>{formatDate(task.dueDate)}</strong>
-                                  {overdue && <span className="ml-1 text-rose-700 font-extrabold uppercase">(OVERDUE)</span>}
-                                </span>
+
+                                {/* Due Date: Editable by Admin, Read-only for Users */}
+                                {isAdmin && onUpdateTaskDueDate ? (
+                                  <label
+                                    title="Admin: Click to edit due date"
+                                    className={`inline-flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded-md border cursor-pointer hover:border-slate-400 transition-all ${
+                                      overdue
+                                        ? 'bg-rose-50 text-rose-800 border-rose-300 font-bold'
+                                        : 'bg-slate-50 text-slate-700 border-slate-200 font-medium'
+                                    }`}
+                                  >
+                                    <Calendar className={`w-3 h-3 shrink-0 ${overdue ? 'text-rose-600' : 'text-slate-400'}`} />
+                                    <span className="font-semibold text-slate-500">Due:</span>
+                                    <input
+                                      type="date"
+                                      value={task.dueDate}
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          onUpdateTaskDueDate(client.id, task.id, e.target.value);
+                                        }
+                                      }}
+                                      className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer border-none p-0 outline-none"
+                                    />
+                                    {overdue && <span className="text-rose-700 font-black text-[9px] uppercase ml-1">(OVERDUE)</span>}
+                                  </label>
+                                ) : (
+                                  <span
+                                    title="Due date set by Admin (Admin role required to edit)"
+                                    className={`text-[11px] ${overdue ? 'text-rose-700 font-bold' : 'text-slate-500'}`}
+                                  >
+                                    Due: <strong className={overdue ? 'text-rose-700 font-bold' : 'text-slate-600 font-semibold'}>{formatDate(task.dueDate)}</strong>
+                                    {overdue && <span className="ml-1 text-rose-700 font-extrabold uppercase">(OVERDUE)</span>}
+                                  </span>
+                                )}
+
                                 {task.deliverableUrl && (
                                   <>
                                     <span>•</span>
@@ -748,31 +792,63 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                           </div>
 
                           {/* Right: Phase selector, Priority, Status Bar */}
-                          <div className="flex items-center space-x-2.5 shrink-0 self-end md:self-start mt-0.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center space-x-2 shrink-0 self-end md:self-start mt-0.5" onClick={(e) => e.stopPropagation()}>
                             
                             {/* Move Phase Dropdown (Accessibility & quick selector) */}
                             {phases.length > 1 && (
                               <select
-                                value={getTaskPhase(task)}
-                                onChange={(e) => handleMoveTaskPhase(task.id, e.target.value)}
-                                className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-sky-500 max-w-[120px] truncate"
-                                title="Change Phase"
+                                value={task.phase || ''}
+                                onChange={(e) => {
+                                  if (e.target.value === '__remove__') {
+                                    handleMoveTaskPhase(task.id, '');
+                                  } else {
+                                    handleMoveTaskPhase(task.id, e.target.value);
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-sky-500 max-w-[125px] truncate"
+                                title="Change SOW Phase or remove from SOW"
                               >
                                 {phases.map(p => (
                                   <option key={p} value={p}>{p}</option>
                                 ))}
+                                <option value="__remove__">-- Remove from SOW --</option>
                               </select>
                             )}
 
-                            {/* Priority Badge */}
-                            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${
-                              task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
-                              task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                              task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
-                              'bg-slate-100 text-slate-600 border-slate-300'
-                            }`}>
-                              {task.priority}
-                            </span>
+                            {/* Priority: Editable by Admin, Read-only for Users */}
+                            {isAdmin && onUpdateTaskPriority ? (
+                              <div className="relative inline-flex items-center">
+                                <select
+                                  value={task.priority}
+                                  onChange={(e) => onUpdateTaskPriority(client.id, task.id, e.target.value as TaskPriority)}
+                                  title="Admin: Change Priority"
+                                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 pr-5 rounded-md border appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 transition-colors ${
+                                    task.priority === 'High' ? 'bg-rose-100 hover:bg-rose-200 text-rose-700 border-rose-300' :
+                                    task.priority === 'Medium' ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300' :
+                                    task.priority === 'Low' ? 'bg-sky-100 hover:bg-sky-200 text-sky-700 border-sky-300' :
+                                    'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'
+                                  }`}
+                                >
+                                  <option value="High">High</option>
+                                  <option value="Medium">Medium</option>
+                                  <option value="Low">Low</option>
+                                  <option value="Unassigned">Unassigned</option>
+                                </select>
+                                <ChevronDown className="w-2.5 h-2.5 absolute right-1.5 pointer-events-none opacity-60 text-slate-600" />
+                              </div>
+                            ) : (
+                              <span
+                                title="Priority set by Admin (Admin role required to edit)"
+                                className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${
+                                  task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
+                                  task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                                  task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
+                                  'bg-slate-100 text-slate-600 border-slate-300'
+                                }`}
+                              >
+                                {task.priority}
+                              </span>
+                            )}
 
                             {/* Gantt Progress Status Pill */}
                             <button
@@ -800,6 +876,18 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                                 <span>Not Started</span>
                               )}
                             </button>
+
+                            {/* Admin Delete Action */}
+                            {isAdmin && onDeleteTask && (
+                              <button
+                                type="button"
+                                onClick={() => onDeleteTask(client.id, task.id)}
+                                className="p-1 text-slate-300 hover:text-rose-600 rounded-md transition-colors"
+                                title="Delete task from project"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                           </div>
                         </div>
@@ -892,20 +980,16 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
             <form onSubmit={handleCreateTaskSubmit} className="mt-4 space-y-4">
               
               {/* Task Description */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                  Deliverable Description / SOW Item *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Conduct ICP buyer persona validation interviews"
-                  value={newTaskDesc}
-                  onChange={(e) => setNewTaskDesc(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  autoFocus
-                />
-              </div>
+              <TaskDescriptionInput
+                id="sow-task-desc"
+                value={newTaskDesc}
+                onChange={setNewTaskDesc}
+                label="Deliverable Description / SOW Item *"
+                labelClassName="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1"
+                placeholder="e.g. Conduct ICP buyer persona validation interviews"
+                required
+                autoFocus
+              />
 
               {/* Phase Selection */}
               <div>

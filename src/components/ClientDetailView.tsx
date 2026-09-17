@@ -11,6 +11,7 @@ import {
   X, 
   CheckCircle2, 
   Clock, 
+  Calendar,
   Archive, 
   History, 
   Sparkles, 
@@ -26,12 +27,16 @@ import {
   ChevronDown,
   ChevronUp,
   Link as LinkIcon,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 import { Client, Task, TaskPriority, TaskStatus, TeamMember, TaskNote } from '../types';
 import { getProjectCompletionStats, getProgressBarColor, formatDate, isOverdue, isDueToday } from '../utils/helpers';
 import { GanttTimelineVisualizer } from './GanttTimelineVisualizer';
 import { ProspectingTimeline } from './ProspectingTimeline';
+import { TaskDescriptionInput } from './TaskDescriptionInput';
+import { FirebaseUser } from '../firebase/config';
 
 interface ClientDetailViewProps {
   client: Client;
@@ -42,11 +47,17 @@ interface ClientDetailViewProps {
   onAddTask: (clientId: string, task: Omit<Task, 'id' | 'clientId' | 'notes'>) => void;
   onUpdateTaskStatus: (clientId: string, taskId: string, status: TaskStatus) => void;
   onUpdateTaskAssignee: (clientId: string, taskId: string, assigneeEmail: string | null) => void;
+  onUpdateTaskPriority: (clientId: string, taskId: string, priority: TaskPriority) => void;
+  onUpdateTaskDueDate: (clientId: string, taskId: string, dueDate: string) => void;
+  onUpdateTaskPhase?: (clientId: string, taskId: string, phase?: string) => void;
   onAddNote: (clientId: string, taskId: string, text: string) => void;
   onUpdateDeliverableUrl: (clientId: string, taskId: string, url: string) => void;
   onDeleteTask: (clientId: string, taskId: string) => void;
   onResetRecurringTask: (clientId: string, taskId: string) => void;
   onPromptWonProspect?: (client: Client) => void;
+  firebaseUser?: FirebaseUser | null;
+  onSignInGoogle?: () => void;
+  onSignOutGoogle?: () => void;
 }
 
 export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
@@ -58,11 +69,17 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   onAddTask,
   onUpdateTaskStatus,
   onUpdateTaskAssignee,
+  onUpdateTaskPriority,
+  onUpdateTaskDueDate,
+  onUpdateTaskPhase,
   onAddNote,
   onUpdateDeliverableUrl,
   onDeleteTask,
   onResetRecurringTask,
-  onPromptWonProspect
+  onPromptWonProspect,
+  firebaseUser,
+  onSignInGoogle,
+  onSignOutGoogle
 }) => {
   const isAdmin = currentUser.role === 'Admin';
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'sow'>('tasks');
@@ -126,8 +143,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     e.preventDefault();
     if (!newTaskDesc.trim()) return;
 
-    const availablePhases = client.phases && client.phases.length > 0 ? client.phases : ['Phase 1: Discovery', 'Phase 2: Strategy & Design', 'Phase 3: Execution & Delivery'];
-    const chosenPhase = newTaskPhase || availablePhases[0];
+    const chosenPhase = newTaskPhase.trim() ? newTaskPhase.trim() : undefined;
 
     onAddTask(client.id, {
       description: newTaskDesc.trim(),
@@ -172,16 +188,40 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               <span>Back to Dashboard</span>
             </button>
 
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-slate-400 hidden sm:inline">Active User:</span>
-              <div className="flex items-center space-x-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 text-xs">
-                <span className="font-semibold text-white">{currentUser.name}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                  isAdmin ? 'bg-amber-400/20 text-amber-300' : 'bg-sky-400/20 text-sky-300'
-                }`}>
-                  {currentUser.role}
-                </span>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-slate-400 hidden sm:inline">Active User:</span>
+                <div className="flex items-center space-x-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 text-xs">
+                  <span className="font-semibold text-white">{currentUser.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                    isAdmin ? 'bg-amber-400/20 text-amber-300' : 'bg-sky-400/20 text-sky-300'
+                  }`}>
+                    {currentUser.role}
+                  </span>
+                </div>
               </div>
+
+              {firebaseUser ? (
+                <button
+                  type="button"
+                  onClick={onSignOutGoogle}
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-100 border border-rose-500/30 text-xs font-semibold transition-all cursor-pointer"
+                  title="Sign out of Google"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
+              ) : onSignInGoogle ? (
+                <button
+                  type="button"
+                  onClick={onSignInGoogle}
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title="Sign in with Google"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Sign in</span>
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -482,14 +522,108 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
-                            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-md border ${
-                              task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
-                              task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                              task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
-                              'bg-slate-100 text-slate-600 border-slate-300'
-                            }`}>
-                              {task.priority} Priority
-                            </span>
+                            {/* PRIORITY: Editable by Admin, Read-only for Users */}
+                            {isAdmin ? (
+                              <div className="relative inline-flex items-center">
+                                <select
+                                  value={task.priority}
+                                  onChange={(e) => onUpdateTaskPriority(client.id, task.id, e.target.value as TaskPriority)}
+                                  title="Admin: Change Priority"
+                                  className={`text-[10px] font-extrabold uppercase px-2.5 py-1 pr-6 rounded-md border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
+                                    task.priority === 'High' ? 'bg-rose-100 hover:bg-rose-200/80 text-rose-700 border-rose-300' :
+                                    task.priority === 'Medium' ? 'bg-amber-100 hover:bg-amber-200/80 text-amber-800 border-amber-300' :
+                                    task.priority === 'Low' ? 'bg-sky-100 hover:bg-sky-200/80 text-sky-700 border-sky-300' :
+                                    'bg-slate-100 hover:bg-slate-200/80 text-slate-600 border-slate-300'
+                                  }`}
+                                >
+                                  <option value="High">High Priority</option>
+                                  <option value="Medium">Medium Priority</option>
+                                  <option value="Low">Low Priority</option>
+                                  <option value="Unassigned">Unassigned</option>
+                                </select>
+                                <ChevronDown className="w-2.5 h-2.5 absolute right-2 pointer-events-none opacity-60 text-slate-600" />
+                              </div>
+                            ) : (
+                              <span
+                                title="Priority set by Admin (Admin role required to edit)"
+                                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md border ${
+                                  task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
+                                  task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                                  task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
+                                  'bg-slate-100 text-slate-600 border-slate-300'
+                                }`}
+                              >
+                                {task.priority} Priority
+                              </span>
+                            )}
+
+                            {/* DUE DATE: Editable by Admin, Read-only for Users */}
+                            {isAdmin ? (
+                              <label
+                                title="Admin: Click to edit due date"
+                                className={`inline-flex items-center space-x-1.5 text-xs px-2.5 py-0.5 rounded-lg border cursor-pointer hover:border-slate-400 transition-all ${
+                                  overdue
+                                    ? 'bg-rose-100 text-rose-800 border-rose-400 font-bold shadow-xs'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 font-medium'
+                                }`}
+                              >
+                                <Calendar className={`w-3.5 h-3.5 shrink-0 ${overdue ? 'text-rose-700' : 'text-slate-500'}`} />
+                                <span className="font-bold text-[11px] text-slate-600">Due:</span>
+                                <input
+                                  type="date"
+                                  value={task.dueDate}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      onUpdateTaskDueDate(client.id, task.id, e.target.value);
+                                    }
+                                  }}
+                                  className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer border-none p-0 outline-none"
+                                />
+                                {overdue && <span className="text-rose-700 font-black uppercase text-[10px] ml-0.5">(OVERDUE)</span>}
+                              </label>
+                            ) : (
+                              <span
+                                title="Due date set by Admin (Admin role required to edit)"
+                                className={`inline-flex items-center space-x-1 text-xs px-2.5 py-1 rounded-lg border ${
+                                  overdue
+                                    ? 'bg-rose-100 text-rose-800 border-rose-400 font-bold shadow-xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 font-medium'
+                                }`}
+                              >
+                                <Clock className={`w-3.5 h-3.5 shrink-0 ${overdue ? 'text-rose-700' : 'text-slate-400'}`} />
+                                <span>Due: {formatDate(task.dueDate)}</span>
+                                {overdue && <span className="text-rose-700 font-black uppercase ml-0.5">(OVERDUE)</span>}
+                              </span>
+                            )}
+
+                            {/* SOW Phase Link & Selector */}
+                            {isAdmin && onUpdateTaskPhase ? (
+                              <div className="relative inline-flex items-center">
+                                <select
+                                  value={task.phase || ''}
+                                  onChange={(e) => onUpdateTaskPhase(client.id, task.id, e.target.value || undefined)}
+                                  title="Admin: Assign or change SOW Phase"
+                                  className={`text-[10px] font-bold px-2 py-1 pr-5 rounded-md border appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors ${
+                                    task.phase
+                                      ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  <option value="">-- Not in SOW --</option>
+                                  {((client.phases && client.phases.length > 0) ? client.phases : ['Phase 1: Discovery', 'Phase 2: Strategy & Design', 'Phase 3: Execution & Delivery']).map(p => (
+                                    <option key={p} value={p}>SOW: {p}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="w-2.5 h-2.5 absolute right-1.5 pointer-events-none opacity-60 text-slate-500" />
+                              </div>
+                            ) : (
+                              task.phase && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center space-x-1" title="Synced with SOW Gantt">
+                                  <FolderKanban className="w-2.5 h-2.5" />
+                                  <span>SOW: {task.phase}</span>
+                                </span>
+                              )
+                            )}
 
                             {task.isRecurring && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200 flex items-center space-x-1">
@@ -497,16 +631,6 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                                 <span>Recurring Cadence</span>
                               </span>
                             )}
-
-                            <span className={`inline-flex items-center space-x-1 text-xs px-2.5 py-1 rounded-lg border ${
-                              overdue
-                                ? 'bg-rose-100 text-rose-800 border-rose-400 font-bold shadow-xs'
-                                : 'bg-slate-50 text-slate-600 border-slate-200 font-medium'
-                            }`}>
-                              <Clock className={`w-3.5 h-3.5 shrink-0 ${overdue ? 'text-rose-700' : 'text-slate-400'}`} />
-                              <span>Due: {formatDate(task.dueDate)}</span>
-                              {overdue && <span className="text-rose-700 font-black uppercase ml-0.5">(OVERDUE)</span>}
-                            </span>
                           </div>
 
                           <h4 className="text-sm font-bold text-slate-900 leading-snug">
@@ -746,6 +870,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
             onUpdateClient={onUpdateClient}
             onUpdateTaskStatus={onUpdateTaskStatus}
             onUpdateTaskAssignee={onUpdateTaskAssignee}
+            onUpdateTaskPriority={onUpdateTaskPriority}
+            onUpdateTaskDueDate={onUpdateTaskDueDate}
             onDeleteTask={onDeleteTask}
           />
         )}
@@ -770,33 +896,34 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
             </div>
 
             <form onSubmit={handleCreateTaskSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                  Task Description *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Conduct ICP buyer persona validation interviews"
-                  value={newTaskDesc}
-                  onChange={(e) => setNewTaskDesc(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
+              <TaskDescriptionInput
+                id="active-workstream-task-desc"
+                value={newTaskDesc}
+                onChange={setNewTaskDesc}
+                label="Task Description *"
+                labelClassName="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1"
+                placeholder="e.g. Conduct ICP buyer persona validation interviews"
+                required
+                autoFocus
+              />
 
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                  SOW Phase
+                  SOW Phase Assignment (Optional)
                 </label>
                 <select
-                  value={newTaskPhase || (client.phases && client.phases[0]) || 'Phase 1: Discovery'}
+                  value={newTaskPhase}
                   onChange={(e) => setNewTaskPhase(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-semibold"
                 >
+                  <option value="">-- None (General Workstream, not in SOW) --</option>
                   {((client.phases && client.phases.length > 0) ? client.phases : ['Phase 1: Discovery', 'Phase 2: Strategy & Design', 'Phase 3: Execution & Delivery']).map(p => (
-                    <option key={p} value={p}>{p}</option>
+                    <option key={p} value={p}>SOW: {p}</option>
                   ))}
                 </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Leave as None for general tasks, or choose an SOW Phase to automatically sync with the SOW Gantt chart.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

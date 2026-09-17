@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Client": {
+      "title": "Client",
+      "description": "A consulting client engagement, retainer, internal initiative, or prospecting deal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Project", "Retainer", "Internal", "Prospecting"] },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "projectSummary": { "type": "string" },
+        "industry": { "type": "string" },
+        "leadConsultant": { "type": "string" },
+        "startDate": { "type": "string" },
+        "targetEndDate": { "type": "string" },
+        "prospectingStage": { "type": "string", "enum": ["Discovery", "Active Deal", "Quoted", "Won", "Lost"] },
+        "phases": { "type": "array" },
+        "tasks": { "type": "array" }
+      },
+      "required": ["id", "name", "type", "status", "projectSummary"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "A Chapter 3 consultant or administrative partner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Admin", "User"] },
+        "title": { "type": "string" },
+        "avatarColor": { "type": "string" },
+        "initials": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Primary repository of all client accounts and tasks"
+    },
+    "/teamMembers/{memberId}": {
+      "schema": "TeamMember",
+      "description": "Directory of consultants and their permissions"
+    }
+  }
+}

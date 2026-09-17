@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Team members directory
+    match /teamMembers/{memberId} {
+      allow read, write: if true;
+    }
+
+    // Clients collection
+    match /clients/{clientId} {
+      allow read, write: if true;
+
+      // In case nested tasks subcollection is used
+      match /tasks/{taskId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Top-level tasks collection (if queried directly)
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+
+    // General app configuration and settings
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}
