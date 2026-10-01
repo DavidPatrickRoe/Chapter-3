@@ -53,16 +53,22 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
   const [deliverableInput, setDeliverableInput] = useState<string>('');
   const [cleanupSuccessMessage, setCleanupSuccessMessage] = useState<string | null>(null);
 
-  // 1. Gather all tasks across active clients (and inactive if needed) that have an assigned team member
-  // RULE: "Includes only tasks assigned to a specific team member. Unassigned tasks do NOT appear here."
-  // RULE: "isArchivedFromFeed" hides tasks that were cleaned up via End-of-Day Cleanup.
+  // 1. Gather tasks: both assigned tasks and unassigned tasks
   const allAssignedTasks: (Task & { clientName: string; clientType: string; clientStatus: string })[] = [];
+  const allUnassignedTasks: (Task & { clientName: string; clientType: string; clientStatus: string })[] = [];
 
   clients.forEach(client => {
     client.tasks.forEach(task => {
-      // Must be assigned and not archived from live feed by EOD cleanup
-      if (task.assignedTo && !task.isArchivedFromFeed) {
+      if (task.isArchivedFromFeed) return;
+      if (task.assignedTo) {
         allAssignedTasks.push({
+          ...task,
+          clientName: client.name,
+          clientType: client.type,
+          clientStatus: client.status
+        });
+      } else if (task.status !== 'Complete' && task.status !== 'Cancelled') {
+        allUnassignedTasks.push({
           ...task,
           clientName: client.name,
           clientType: client.type,
@@ -72,13 +78,15 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
     });
   });
 
-  // 2. Filter by "All Priority Tasks" vs "My Tasks"
-  const filteredTasks = allAssignedTasks.filter(task => {
-    if (filterMode === 'mine') {
-      return task.assignedTo === currentUser.email;
-    }
-    return true;
-  });
+  // 2. Filter by "All Priority Tasks" vs "My Tasks" vs "Unassigned"
+  const filteredTasks = filterMode === 'unassigned'
+    ? allUnassignedTasks
+    : allAssignedTasks.filter(task => {
+        if (filterMode === 'mine') {
+          return task.assignedTo === currentUser.email;
+        }
+        return true;
+      });
 
   // 3. Strict Priority Sorting: High -> Medium -> Low, then Due Date
   const sortedTasks = sortPriorityTasks(filteredTasks);
@@ -156,31 +164,50 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
 
         {/* Action Controls: Filter Buttons & End-of-Day Cleanup */}
         <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
-          {/* Filter Toggles: All vs My Tasks */}
+          {/* Filter Toggles: All vs My Tasks vs Needs Assignee */}
           <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex items-center text-xs font-semibold">
             <button
               type="button"
               onClick={() => setFilterMode('all')}
-              className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
                 filterMode === 'all'
                   ? 'bg-slate-900 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>All Priority</span>
+              <span>All Assigned ({allAssignedTasks.length})</span>
             </button>
             <button
               type="button"
               onClick={() => setFilterMode('mine')}
-              className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
                 filterMode === 'mine'
                   ? 'bg-sky-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span>My Tasks</span>
+              <span>My Tasks ({allAssignedTasks.filter(t => t.assignedTo === currentUser.email).length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('unassigned')}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+                filterMode === 'unassigned'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-amber-800 hover:bg-amber-50'
+              }`}
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Needs Assignee</span>
+              {allUnassignedTasks.length > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  filterMode === 'unassigned' ? 'bg-amber-700 text-amber-100' : 'bg-amber-200 text-amber-900'
+                }`}>
+                  {allUnassignedTasks.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -258,7 +285,13 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
                     🏢 {task.clientName}
                   </button>
 
-                  <div className="flex items-center space-x-1.5">
+                  <div className="flex items-center space-x-1.5 flex-wrap gap-1">
+                    {!task.assignedTo && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 flex items-center space-x-1 animate-pulse">
+                        <HelpCircle className="w-2.5 h-2.5 text-amber-700" />
+                        <span>Needs Assignee</span>
+                      </span>
+                    )}
                     {task.isRecurring && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200 flex items-center space-x-1">
                         <RotateCcw className="w-2.5 h-2.5" />
@@ -291,21 +324,43 @@ export const PriorityTasksFeed: React.FC<PriorityTasksFeedProps> = ({
                   
                   {/* Inline Assignee Selector */}
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      Assigned To
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Assigned To
+                      </label>
+                      {!task.assignedTo && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
+                          Open
+                        </span>
+                      )}
+                    </div>
                     <select
                       value={task.assignedTo || ''}
                       onChange={(e) => onUpdateTaskAssignee(task.clientId, task.id, e.target.value || null)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      className={`w-full rounded-xl px-2 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer border transition-colors ${
+                        task.assignedTo
+                          ? 'bg-slate-50 border-slate-200 text-slate-800'
+                          : 'bg-amber-50 border-amber-300 text-amber-900 font-bold hover:bg-amber-100/80'
+                      }`}
                     >
                       <option value="">-- Unassigned --</option>
                       {teamMembers.map(m => (
                         <option key={m.id} value={m.email}>
-                          {m.name} ({m.role})
+                          {m.name} ({m.title || m.role})
                         </option>
                       ))}
                     </select>
+
+                    {!task.assignedTo && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateTaskAssignee(task.clientId, task.id, currentUser.email)}
+                        className="mt-1.5 w-full py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] rounded-lg border border-amber-300 flex items-center justify-center space-x-1 transition-all cursor-pointer shadow-2xs active:scale-98"
+                        title={`Assign this deliverable to yourself (${currentUser.name})`}
+                      >
+                        <span>Claim Task ({currentUser.initials})</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Inline Status Dropdown */}

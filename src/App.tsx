@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   ArrowRight,
   TrendingUp,
-  LayoutGrid
+  LayoutGrid,
+  Upload
 } from 'lucide-react';
 import { 
   Client, 
@@ -28,6 +29,8 @@ import { ClientCard } from './components/ClientCard';
 import { PriorityTasksFeed } from './components/PriorityTasksFeed';
 import { ClientDetailView } from './components/ClientDetailView';
 import { AddClientModal } from './components/AddClientModal';
+import { SOWUploadModal } from './components/SOWUploadModal';
+import { LoginScreen } from './components/LoginScreen';
 import { 
   subscribeToClients, 
   saveClientToDb, 
@@ -50,37 +53,71 @@ export default function App() {
   // State for team members & current active user
   const [teamMembers] = useState<TeamMember[]>(TEAM_MEMBERS);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'offline'>('syncing');
+  const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [currentUser, setCurrentUser] = useState<TeamMember>(() => {
-    const saved = localStorage.getItem(USER_STORAGE_KEY);
-    if (saved) {
-      const found = TEAM_MEMBERS.find(m => m.id === saved);
-      if (found) return found;
+  // Current active user - strictly locked to verified Google tenant account
+  const [currentUser, setCurrentUser] = useState<TeamMember | null>(() => {
+    try {
+      const saved = localStorage.getItem(USER_STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && parsed.email) {
+            return parsed;
+          }
+        } catch {
+          // If stored as legacy id string, check if member exists
+          const found = TEAM_MEMBERS.find(m => m.id === saved);
+          if (found) return found;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved user', e);
     }
-    // Default to Mary Jane Leslie (Admin)
-    return TEAM_MEMBERS[0];
+    return null;
   });
 
-  // Listen to Firebase Auth state
+  // Listen to Firebase Auth state - strictly enforce @chapter3.ca Google tenant
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && user.email) {
         const userEmailLower = user.email.toLowerCase();
-        // Match against existing team members
+        
+        // Strict tenant barrier: only @chapter3.ca accounts are permitted
+        if (!userEmailLower.endsWith('@chapter3.ca')) {
+          console.warn('Unauthorized domain attempted login:', user.email);
+          await signOutUser();
+          setFirebaseUser(null);
+          setCurrentUser(null);
+          localStorage.removeItem(USER_STORAGE_KEY);
+          setAuthError(
+            `Access restricted: "${user.email}" is not an authorized Chapter 3 Google tenant account. Only @chapter3.ca accounts can sign in.`
+          );
+          setIsAuthInitializing(false);
+          return;
+        }
+
+        setFirebaseUser(user);
+        setAuthError(null);
+
+        // Match against existing team members directory
         const matchedMember = teamMembers.find(m => m.email.toLowerCase() === userEmailLower);
+        let activePerson: TeamMember;
         if (matchedMember) {
-          setCurrentUser(matchedMember);
+          activePerson = {
+            ...matchedMember,
+            id: user.uid || matchedMember.id
+          };
         } else {
-          // Dynamic team member for authenticated account
+          // Dynamic team member for authenticated account from @chapter3.ca
           const name = user.displayName || user.email.split('@')[0];
           const initials = user.displayName
             ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
             : user.email.slice(0, 2).toUpperCase();
-          const dynamicUser: TeamMember = {
+          activePerson = {
             id: user.uid,
             name,
             email: user.email,
@@ -89,9 +126,21 @@ export default function App() {
             avatarColor: 'from-sky-500 to-indigo-600',
             initials
           };
-          setCurrentUser(dynamicUser);
         }
+
+        // Tag permanently to this person
+        setCurrentUser(activePerson);
+        try {
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(activePerson));
+        } catch (e) {
+          console.warn('Failed to cache user identity', e);
+        }
+      } else {
+        setFirebaseUser(null);
+        setCurrentUser(null);
+        localStorage.removeItem(USER_STORAGE_KEY);
       }
+      setIsAuthInitializing(false);
     });
 
     return () => unsubscribe();
@@ -119,8 +168,8 @@ export default function App() {
     try {
       await signOutUser();
       setFirebaseUser(null);
-      // Reset active user to default
-      setCurrentUser(TEAM_MEMBERS[0]);
+      setCurrentUser(null);
+      localStorage.removeItem(USER_STORAGE_KEY);
     } catch (err: any) {
       console.error('Sign-out error:', err);
     }
@@ -189,9 +238,17 @@ export default function App() {
     }
   }, [clients]);
 
-  // Save active user
+  // Save active user safely
   useEffect(() => {
-    localStorage.setItem(USER_STORAGE_KEY, currentUser.id);
+    if (currentUser) {
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser));
+      } catch (e) {
+        console.warn('Failed to save user to localStorage', e);
+      }
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
   }, [currentUser]);
 
   // Firestore sync helper for individual client writes
@@ -212,6 +269,8 @@ export default function App() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState<boolean>(false);
   const [wonProspectToConvert, setWonProspectToConvert] = useState<Partial<Client> | null>(null);
+  const [isSOWModalOpen, setIsSOWModalOpen] = useState<boolean>(false);
+  const [sowTargetClientId, setSowTargetClientId] = useState<string | undefined>(undefined);
 
   // Sync selectedClient with live clients state
   const currentSelectedClient = selectedClient 
@@ -246,6 +305,24 @@ export default function App() {
     };
     setClients(prev => [newClient, ...prev]);
     persistClient(newClient);
+  };
+
+  // SOW Modal triggers and creation handlers
+  const handleOpenSOWModal = (clientId?: string) => {
+    setSowTargetClientId(clientId);
+    setIsSOWModalOpen(true);
+  };
+
+  const handleClientCreatedFromSOW = (newClient: Client) => {
+    setClients(prev => [newClient, ...prev.filter(c => c.id !== newClient.id)]);
+    persistClient(newClient);
+    setSelectedClient(newClient);
+  };
+
+  const handleClientUpdatedFromSOW = (updatedClient: Client) => {
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+    persistClient(updatedClient);
+    setSelectedClient(updatedClient);
   };
 
   // Handler to add a task to a client
@@ -390,6 +467,7 @@ export default function App() {
 
   // Handler to add note to task
   const handleAddNote = (clientId: string, taskId: string, text: string) => {
+    if (!currentUser) return;
     const now = new Date();
     const timestamp = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
@@ -585,6 +663,36 @@ export default function App() {
     return acc + c.tasks.filter(t => t.assignedTo && !t.isArchivedFromFeed && t.status !== 'Complete' && t.status !== 'Cancelled').length;
   }, 0);
 
+  // 1. Initializing auth check splash screen
+  if (isAuthInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/30 text-white font-bold text-xl animate-pulse">
+            C3
+          </div>
+          <div className="text-center">
+            <h2 className="text-lg font-bold text-white font-serif">Chapter 3 Consulting OS</h2>
+            <p className="text-xs text-slate-400 mt-1">Verifying Google tenant credentials...</p>
+          </div>
+          <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Authentication Gate: Must be authenticated with an authorized @chapter3.ca Google tenant account
+  if (!firebaseUser || !currentUser) {
+    return (
+      <LoginScreen
+        onSignIn={handleGoogleSignIn}
+        isSigningIn={isSigningIn}
+        authError={authError}
+        onClearError={() => setAuthError(null)}
+      />
+    );
+  }
+
   // If a client is selected, render the Drill-Down Full-Screen View
   if (currentSelectedClient) {
     return (
@@ -605,6 +713,7 @@ export default function App() {
         onDeleteTask={handleDeleteTask}
         onResetRecurringTask={handleResetRecurringTask}
         onPromptWonProspect={handlePromptWonProspect}
+        onOpenSOWUpload={handleOpenSOWModal}
         firebaseUser={firebaseUser}
         onSignInGoogle={handleGoogleSignIn}
         onSignOutGoogle={handleGoogleSignOut}
@@ -620,10 +729,10 @@ export default function App() {
       <Navbar
         currentUser={currentUser}
         teamMembers={teamMembers}
-        onSelectUser={setCurrentUser}
         showInactive={showInactive}
         onToggleShowInactive={setShowInactive}
         onOpenAddClient={() => setIsAddClientModalOpen(true)}
+        onOpenSOWUpload={() => handleOpenSOWModal()}
         activeClientCount={activeClientsCount}
         inactiveClientCount={inactiveClientsCount}
         totalOpenTasks={totalOpenAssignedTasks}
@@ -637,7 +746,7 @@ export default function App() {
       {/* Main Dashboard Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
-        {/* Auth Error Notification */}
+        {/* Auth Error Notification (If any) */}
         {authError && (
           <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl flex items-center justify-between text-xs font-medium shadow-sm">
             <div className="flex items-center space-x-2">
@@ -654,38 +763,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Google Authentication Quick Connect Banner (When Not Signed In) */}
-        {!firebaseUser && (
-          <div className="mb-6 bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 text-white p-4 sm:p-5 rounded-3xl border border-slate-800 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
-                <LogIn className="w-5 h-5 text-sky-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white tracking-tight">
-                  Sign in with Google to sync your Chapter 3 consulting profile
-                </h3>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Connect your Google account to automatically match your identity, deliverables, and role-based permissions.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
-              className="self-start sm:self-auto flex items-center space-x-2 bg-white hover:bg-slate-100 text-slate-900 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer whitespace-nowrap active:scale-95 disabled:opacity-60"
-            >
-              {isSigningIn ? (
-                <span className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <LogIn className="w-4 h-4 text-sky-600" />
-              )}
-              <span>{isSigningIn ? 'Connecting...' : 'Sign in with Google'}</span>
-            </button>
-          </div>
-        )}
-        
         {/* Two-Column Split View: LEFT COLUMN (Clients) | RIGHT COLUMN (Priority Tasks Feed) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
@@ -728,16 +805,28 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search client engagements by name, industry, or strategic scope..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
-                />
+              {/* Search Bar and Quick Upload Button */}
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search client engagements by name, industry, or strategic scope..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenSOWModal()}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap active:scale-95 shrink-0"
+                  title="Upload SOW to auto-extract deliverables and create client + tasks"
+                >
+                  <Upload className="w-3.5 h-3.5 text-sky-200" />
+                  <span>Upload SOW</span>
+                </button>
               </div>
             </div>
 
@@ -800,10 +889,23 @@ export default function App() {
         currentUser={currentUser}
         teamMembers={teamMembers}
         onAddClient={handleAddClient}
-        onSwitchToAdmin={(admin) => {
-          setCurrentUser(admin);
-        }}
+        onOpenSOWUpload={() => handleOpenSOWModal()}
         initialValues={wonProspectToConvert}
+      />
+
+      {/* SOW Scope Breakdown & Task Engine Modal */}
+      <SOWUploadModal
+        isOpen={isSOWModalOpen}
+        onClose={() => {
+          setIsSOWModalOpen(false);
+          setSowTargetClientId(undefined);
+        }}
+        currentUser={currentUser}
+        teamMembers={teamMembers}
+        clients={clients}
+        targetClientId={sowTargetClientId}
+        onClientCreated={handleClientCreatedFromSOW}
+        onClientUpdated={handleClientUpdatedFromSOW}
       />
 
     </div>

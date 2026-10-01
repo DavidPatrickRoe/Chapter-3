@@ -718,21 +718,40 @@ export const GanttTimelineVisualizer: React.FC<GanttTimelineVisualizerProps> = (
                               </div>
 
                               <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-1.5 flex-wrap gap-y-1">
-                                {/* Assignee: Editable for Admin, Read-only for Users */}
-                                {isAdmin && onUpdateTaskAssignee ? (
-                                  <select
-                                    value={task.assignedTo || ''}
-                                    onChange={(e) => onUpdateTaskAssignee(client.id, task.id, e.target.value || null)}
-                                    title="Admin: Change task assignee"
-                                    className="text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 max-w-[130px] truncate focus:outline-none focus:ring-1 focus:ring-sky-500"
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {teamMembers.map(m => (
-                                      <option key={m.id} value={m.email}>{m.name}</option>
-                                    ))}
-                                  </select>
+                                {/* Assignee: Selectable with unassigned indicator */}
+                                {onUpdateTaskAssignee ? (
+                                  <div className="flex items-center space-x-1">
+                                    <select
+                                      value={task.assignedTo || ''}
+                                      onChange={(e) => onUpdateTaskAssignee(client.id, task.id, e.target.value || null)}
+                                      title="Change task assignee"
+                                      className={`text-[11px] font-semibold rounded px-1.5 py-0.5 max-w-[140px] truncate focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer border ${
+                                        task.assignedTo
+                                          ? 'text-slate-700 bg-slate-50 border-slate-200'
+                                          : 'text-amber-900 bg-amber-50 border-amber-300 font-bold'
+                                      }`}
+                                    >
+                                      <option value="">-- Unassigned --</option>
+                                      {teamMembers.map(m => (
+                                        <option key={m.id} value={m.email}>{m.name}</option>
+                                      ))}
+                                    </select>
+                                    {!task.assignedTo && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onUpdateTaskAssignee(client.id, task.id, currentUser.email);
+                                        }}
+                                        className="text-[9px] font-black px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded cursor-pointer"
+                                        title={`Assign to ${currentUser.name}`}
+                                      >
+                                        Claim
+                                      </button>
+                                    )}
+                                  </div>
                                 ) : (
-                                  <span className="font-medium text-slate-600">
+                                  <span className={`font-semibold ${!assignee ? 'text-amber-700' : 'text-slate-600'}`}>
                                     {assignee ? assignee.name : 'Unassigned'}
                                   </span>
                                 )}

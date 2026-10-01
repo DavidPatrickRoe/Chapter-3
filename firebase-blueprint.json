@@ -16,7 +16,9 @@
         "targetEndDate": { "type": "string" },
         "prospectingStage": { "type": "string", "enum": ["Discovery", "Active Deal", "Quoted", "Won", "Lost"] },
         "phases": { "type": "array" },
-        "tasks": { "type": "array" }
+        "tasks": { "type": "array" },
+        "sow": { "type": "object" },
+        "sowHistory": { "type": "array" }
       },
       "required": ["id", "name", "type", "status", "projectSummary"]
     },

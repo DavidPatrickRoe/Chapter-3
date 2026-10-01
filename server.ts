@@ -224,6 +224,150 @@ Draft Task Description:
     }
   });
 
+  // Gemini AI SOW Scope Breakdown & Task Extraction endpoint
+  app.post('/api/gemini/extract-sow', async (req, res) => {
+    try {
+      const { sowText, teamMembers } = req.body;
+      if (!sowText || typeof sowText !== 'string' || !sowText.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'SOW text is required'
+        });
+      }
+
+      const rawInput = sowText.trim();
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      const teamList = Array.isArray(teamMembers) && teamMembers.length > 0 
+        ? teamMembers 
+        : [
+            { name: 'MJ Leslie', role: 'Admin', email: 'mj@chapter3.ca' },
+            { name: 'David Roe', role: 'Admin', email: 'david@chapter3.ca' },
+            { name: 'Megan Savary', role: 'User', email: 'megan@chapter3.ca' },
+            { name: 'Asangi Jasenthuliyana', role: 'User', email: 'asangi@chapter3.ca' }
+          ];
+
+      if (!apiKey) {
+        return res.json({
+          success: true,
+          mode: 'heuristic',
+          note: 'Parsed using Chapter 3 Scope Engine (Heuristic)',
+          rawText: rawInput
+        });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are a Principal Management Consultant & Operations Director at Chapter 3, an elite B2B sales and marketing consulting firm (brand: https://chapter3.ca/).
+Carefully analyze the following Statement of Work (SOW) document and extract a comprehensive, executive-level project structure for our CRM and task management platform.
+
+Document Content:
+"""
+${rawInput}
+"""
+
+Available Chapter 3 Team Members for Task Assignment:
+${JSON.stringify(teamList)}
+
+Instructions:
+1. Extract Client Name (e.g. "Home + Health"), Engagement Title (e.g. "Campaign Execution & Strategic Advisory" or "Phase 2: Provincial Expansion"), and appropriate Industry.
+2. Determine Client Engagement Type: "Project" (time-bound with deliverables/phases) or "Retainer" (ongoing monthly recurring) or "Internal" or "Prospecting".
+3. Extract the comprehensive executive summary.
+4. Extract Pricing, fee amount (e.g. "$8,650 CAD plus applicable taxes"), terms ("Payment due upon receipt"), and estimated duration (e.g. "8 weeks" or "2 months").
+5. Extract all Signatories (Name, Title, Party/Company).
+6. Extract all distinct Workstreams (e.g., ["1. Coordinated PR & Brand Awareness", "2. Targeted Direct Mail Campaigns", ...]).
+7. Extract Timeline Milestones table (timeline interval like "Month 1: Weeks 1–2", milestone name, and key activities).
+8. Formulate 3-5 clean Project Phases that can be visualized on a timeline (e.g., ["Phase 1: Project Kickoff & Setup (Weeks 1–2)", "Phase 2: Campaign Development & Production (Weeks 3–4)", "Phase 3: Campaign Execution (Weeks 5–6)", "Phase 4: Optimization & Hand-Off (Weeks 7–8)"]).
+9. Extract a granular, actionable breakdown of CRM Tasks from ALL workstreams, deliverables, and milestone key activities.
+   - Each task MUST have a clear, professional description starting with an active imperative verb (e.g., "Design and coordinate low-cost media campaign targeting provincial news outlets", "Configure HubSpot automated onboarding workflows and segmentation").
+   - Assign appropriate workstream name.
+   - Map each task to the most relevant Phase from the phases list above.
+   - Set Priority: "High" (kickoff, critical path, high-impact) | "Medium" (standard deliverables) | "Low".
+   - CRITICAL REQUIREMENT: Set assignedToEmail to null (Unassigned) by default for ALL extracted tasks, so the consulting director can assign tasks during review.
+   - Assign approximate due date offset (days from today, e.g. 7 for week 1, 14 for week 2, 21 for week 3, 28 for week 4, 42 for month 2, etc.).
+   - Flag any recurring tasks (e.g. weekly strategic advisory meetings).
+
+Return ONLY valid JSON matching this schema:
+{
+  "clientName": "string",
+  "engagementTitle": "string",
+  "clientType": "Project" | "Retainer" | "Internal" | "Prospecting",
+  "industry": "string",
+  "leadConsultant": "string",
+  "projectSummary": "string",
+  "phases": ["Phase 1: ...", "Phase 2: ..."],
+  "pricing": {
+    "fee": "string",
+    "model": "Flat Rate" | "Retainer" | "Hourly" | "Milestone",
+    "terms": "string",
+    "estimatedDuration": "string"
+  },
+  "signatories": [
+    { "party": "string", "name": "string", "title": "string" }
+  ],
+  "milestones": [
+    { "timeline": "string", "milestone": "string", "keyActivities": "string" }
+  ],
+  "workstreams": ["string"],
+  "deliverables": [
+    { "title": "string", "description": "string", "workstream": "string" }
+  ],
+  "tasks": [
+    {
+      "description": "string",
+      "workstream": "string",
+      "phase": "string",
+      "priority": "High" | "Medium" | "Low",
+      "assignedToEmail": null,
+      "dayOffset": number,
+      "deliverableRef": "string",
+      "isRecurring": boolean
+    }
+  ]
+}`;
+
+      let responseText = '';
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+        responseText = response.text || '';
+      } catch (primaryErr) {
+        console.warn('gemini-3.8-flash extraction failed, falling back to gemini-3.1-flash-lite:', primaryErr);
+        const fallbackRes = await ai.models.generateContent({
+          model: 'gemini-3.1-flash-lite',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+        responseText = fallbackRes.text || '';
+      }
+
+      if (!responseText) {
+        throw new Error('Empty response from Gemini AI');
+      }
+
+      const parsed = JSON.parse(responseText);
+      return res.json({
+        success: true,
+        mode: 'gemini',
+        extracted: parsed,
+        rawText: rawInput
+      });
+    } catch (error: any) {
+      console.error('Error extracting SOW with Gemini:', error);
+      return res.json({
+        success: true,
+        mode: 'heuristic',
+        warning: error.message || 'Falling back to high-precision heuristic SOW extraction'
+      });
+    }
+  });
+
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -5,11 +5,23 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
-  writeBatch
+  writeBatch,
+  getDocFromServer
 } from 'firebase/firestore';
 import { db, auth } from './config';
 import { Client, TeamMember } from '../types';
 import { INITIAL_CLIENTS, TEAM_MEMBERS } from '../data/initialData';
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
+    }
+  }
+}
+testConnection();
 
 const CLIENTS_COLLECTION = 'clients';
 const TEAM_COLLECTION = 'teamMembers';

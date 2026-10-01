@@ -8,7 +8,7 @@ interface AddClientModalProps {
   currentUser: TeamMember;
   teamMembers: TeamMember[];
   onAddClient: (newClient: Omit<Client, 'id' | 'tasks'>) => void;
-  onSwitchToAdmin: (adminUser: TeamMember) => void;
+  onOpenSOWUpload?: () => void;
   initialValues?: Partial<Client> | null;
 }
 
@@ -18,7 +18,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
   currentUser,
   teamMembers,
   onAddClient,
-  onSwitchToAdmin,
+  onOpenSOWUpload,
   initialValues
 }) => {
   const isAdmin = currentUser.role === 'Admin';
@@ -72,8 +72,6 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
     onClose();
   };
 
-  const adminMembers = teamMembers.filter(m => m.role === 'Admin');
-
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
@@ -105,7 +103,7 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
           </button>
         </div>
 
-        {/* Non-Admin Guard */}
+        {/* Non-Admin Guard - Persona switching disabled */}
         {!isAdmin ? (
           <div className="my-6 space-y-4">
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-amber-900 flex items-start space-x-3">
@@ -113,38 +111,53 @@ export const AddClientModal: React.FC<AddClientModalProps> = ({
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider">Admin Role Required</h4>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  You are currently switched to <strong>{currentUser.name} ({currentUser.role})</strong>. Creating new client cards and editing high-level client scopes is reserved for Chapter 3 Partners (Admins).
+                  You are authenticated as <strong>{currentUser.name} ({currentUser.role})</strong>. Creating new client cards and configuring high-level strategic scopes is restricted to Chapter 3 Partners (Admins).
+                </p>
+                <p className="text-xs text-amber-700 mt-2 leading-relaxed">
+                  Because user sessions are strictly locked to individual Google tenant accounts, persona switching is disabled for all users and administrators. Please coordinate with a Chapter 3 Partner (e.g. David Roe or MJ Leslie) to create this client engagement.
                 </p>
               </div>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-              <p className="text-xs font-bold text-slate-700">Switch to an Admin to continue:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {adminMembers.map(admin => (
-                  <button
-                    key={admin.id}
-                    type="button"
-                    onClick={() => {
-                      onSwitchToAdmin(admin);
-                    }}
-                    className="flex items-center space-x-2 p-2.5 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 transition-all text-left"
-                  >
-                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${admin.avatarColor} text-white font-bold text-[12px] flex items-center justify-center text-center leading-none select-none shrink-0 pt-[1px]`}>
-                      {admin.initials}
-                    </div>
-                    <div>
-                      <p className="leading-tight">{admin.name}</p>
-                      <span className="text-[10px] text-amber-700 font-bold uppercase">Admin</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500">Need a client card created? Contact an administrator.</span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             
+            {/* SOW Auto-Fill Option */}
+            {onOpenSOWUpload && (
+              <div className="bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Have a client SOW?</span>
+                    <span className="text-[11px] text-slate-600">Auto-fill deliverables, phases, and CRM tasks from document text.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenSOWUpload();
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-xs cursor-pointer transition-all active:scale-95"
+                >
+                  Upload SOW
+                </button>
+              </div>
+            )}
+
             {/* Client Name */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">

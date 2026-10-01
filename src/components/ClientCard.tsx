@@ -7,7 +7,8 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertCircle,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
 import { Client, TeamMember } from '../types';
 import { getProjectCompletionStats, getProgressBarColor } from '../utils/helpers';
@@ -39,6 +40,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   // Active open tasks (not complete or cancelled)
   const openTasks = client.tasks.filter(t => t.status === 'Not Started' || t.status === 'In Progress');
   const highPriorityOpenCount = openTasks.filter(t => t.priority === 'High').length;
+  const unassignedOpenCount = openTasks.filter(t => !t.assignedTo).length;
 
   // Get distinct assigned members for this client
   const assignedEmails = Array.from(new Set(client.tasks.map(t => t.assignedTo).filter(Boolean)));
@@ -112,6 +114,20 @@ export const ClientCard: React.FC<ClientCardProps> = ({
                 <TypeIcon className="w-3 h-3 shrink-0" />
                 <span>{themeConfig.label}</span>
               </span>
+
+              {client.sow && (
+                <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 border border-sky-300" title={client.sow.title}>
+                  <FileText className="w-2.5 h-2.5 text-sky-700" />
+                  <span>SOW Attached</span>
+                </span>
+              )}
+
+              {unassignedOpenCount > 0 && (
+                <span className="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300" title={`${unassignedOpenCount} deliverables awaiting consultant assignment`}>
+                  <span>{unassignedOpenCount} Needs Assignee</span>
+                </span>
+              )}
+
               {client.status === 'Inactive' && (
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
                   Archived / Inactive

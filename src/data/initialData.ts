@@ -41,6 +41,263 @@ export const TEAM_MEMBERS: TeamMember[] = [
 
 export const INITIAL_CLIENTS: Client[] = [
   {
+    id: 'c-home-health',
+    name: 'Home + Health',
+    type: 'Project',
+    status: 'Active',
+    industry: 'Healthcare & Senior Care',
+    leadConsultant: 'MJ Leslie',
+    startDate: '2026-09-01',
+    targetEndDate: '2026-10-31',
+    projectSummary: 'Following the successful establishment of Home + Health’s foundational messaging and go-to-market strategy, this Scope of Work details the transition into active client and provider acquisition, community engagement, and digital systems optimization. Chapter 3 will lead the execution of highly targeted local awareness and recruitment campaigns, leveraging coordinated PR, direct mail, event outreach, and marketing automation.',
+    phases: [
+      'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+      'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+      'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+      'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)'
+    ],
+    sow: {
+      id: 'sow-hh-1',
+      title: 'Home + Health SOW — Campaign Execution & Strategic Advisory',
+      phaseTitle: 'Phase 1: Campaign Execution & Acquisition',
+      clientName: 'Home + Health',
+      summary: 'Following the successful establishment of Home + Health’s foundational messaging and go-to-market strategy, this Scope of Work details the transition into active client and provider acquisition, community engagement, and digital systems optimization. Chapter 3 will lead the execution of highly targeted local awareness and recruitment campaigns, leveraging coordinated public relations, direct mail, event outreach, and marketing automation. Additionally, Chapter 3 will complete crucial database segmentation work within HubSpot and provide ongoing strategic advisory and mentorship to ensure Home + Health\'s internal marketing team operates with high efficiency and momentum.',
+      workstreams: [
+        '1. Coordinated PR & Brand Awareness',
+        '2. Targeted Direct Mail Campaigns',
+        '3. Event-Based Recruitment & Community Outreach',
+        '4. HubSpot Segmentation & Automated Email Campaigns',
+        '5. Dedicated Weekly Strategic Advisory'
+      ],
+      deliverables: [
+        {
+          title: 'PR Campaign',
+          description: 'Design and coordinate a low-cost media campaign targeting provincial news outlets, highlighting Nova Scotia\'s senior care crisis.',
+          workstream: '1. Coordinated PR & Brand Awareness'
+        },
+        {
+          title: 'Media & Editorial Pitching',
+          description: 'Draft and pitch compelling brand stories, founder profiles, and early platform success stories to local media.',
+          workstream: '1. Coordinated PR & Brand Awareness'
+        },
+        {
+          title: 'Podcast Outreach',
+          description: 'Identify and pitch Home + Health founders to regional healthcare and aging-in-place podcasts.',
+          workstream: '1. Coordinated PR & Brand Awareness'
+        },
+        {
+          title: 'Creative Asset Development',
+          description: 'Conceptualize and design high-impact physical print materials for carepreneurs and Sandwich Generation decision-makers.',
+          workstream: '2. Targeted Direct Mail Campaigns'
+        },
+        {
+          title: 'Geographic & Audience Targeting',
+          description: 'Define optimal delivery regions and postal codes based on seniors density and household income metrics.',
+          workstream: '2. Targeted Direct Mail Campaigns'
+        },
+        {
+          title: 'Canada Post Coordination',
+          description: 'Manage end-to-end logistics, print production, and direct distribution via Canada Post Precision Targeter.',
+          workstream: '2. Targeted Direct Mail Campaigns'
+        },
+        {
+          title: 'Event Identification & Evaluation',
+          description: 'Identify local job fairs and university recruitment events; build 6-month event calendar.',
+          workstream: '3. Event-Based Recruitment & Community Outreach'
+        },
+        {
+          title: 'Audience-Segment Mapping',
+          description: 'Audit and map existing email communication templates to specific customer and provider database segments.',
+          workstream: '4. HubSpot Segmentation & Automated Email Campaigns'
+        },
+        {
+          title: 'CRM Segmentation',
+          description: 'Complete database segmentation work initiated during Ciara\'s internship, organizing active/inactive and provider/client contacts.',
+          workstream: '4. HubSpot Segmentation & Automated Email Campaigns'
+        }
+      ],
+      milestones: [
+        {
+          timeline: 'Month 1: Weeks 1–2',
+          milestone: 'Project Kickoff & Infrastructure Setup',
+          keyActivities: 'Complete HubSpot CRM database segmentation and audit email templates. Define direct mail target geographies and draft initial PR media pitching.'
+        },
+        {
+          timeline: 'Month 1: Weeks 3–4',
+          milestone: 'Campaign Development & Asset Production',
+          keyActivities: 'Design direct mail print creative and event marketing collateral. Finalize automated HubSpot workflow configurations and continue media/podcast outreach.'
+        },
+        {
+          timeline: 'Month 2: Weeks 5–6',
+          milestone: 'Campaign Execution',
+          keyActivities: 'Launch direct mail distribution via Canada Post Precision Targeter. Develop plans and materials for targeted recruitment events.'
+        },
+        {
+          timeline: 'Month 2: Weeks 7–8',
+          milestone: 'Optimization, Hand-Off & Wrap-Up',
+          keyActivities: 'Finalize PR media placements, conduct HubSpot data flow audit, and complete transition of campaign assets and workflows to the internal team.'
+        }
+      ],
+      pricing: {
+        fee: '$8,650 CAD plus applicable taxes',
+        model: 'Flat Rate',
+        terms: 'Payment due upon receipt',
+        estimatedDuration: '8 Weeks (2 Months)'
+      },
+      signatories: [
+        {
+          party: 'Home + Health',
+          name: 'Alan MacKeen',
+          title: 'Founder, Managing Partner'
+        },
+        {
+          party: 'Chapter 3 Ltd.',
+          name: 'Mary Jane Leslie',
+          title: 'Owner & Principal Consultant'
+        }
+      ],
+      uploadedAt: '2026-09-01T09:00:00.000Z'
+    },
+    tasks: [
+      {
+        id: 't-hh-1',
+        clientId: 'c-home-health',
+        description: 'Complete HubSpot CRM database segmentation and audit email templates across care seeker segments',
+        assignedTo: 'david@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-12',
+        status: 'In Progress',
+        phase: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+        workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+        sowDeliverableRef: 'CRM Segmentation',
+        isRecurring: false,
+        deliverableUrl: 'https://app.hubspot.com/contacts/chapter3/lists',
+        notes: [
+          {
+            id: 'n-hh-1',
+            authorEmail: 'david@chapter3.ca',
+            authorName: 'David Roe',
+            text: 'Audited 420 initial contacts. Built segmented Smart Lists for Care Seekers, Carepreneurs, and Institutional Referrals.',
+            timestamp: '2026-09-05 11:20'
+          }
+        ]
+      },
+      {
+        id: 't-hh-2',
+        clientId: 'c-home-health',
+        description: 'Define Halifax direct mail delivery regions & postal codes based on seniors density metrics',
+        assignedTo: 'asangi@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-14',
+        status: 'In Progress',
+        phase: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+        workstream: '2. Targeted Direct Mail Campaigns',
+        sowDeliverableRef: 'Geographic & Audience Targeting',
+        isRecurring: false,
+        notes: [
+          {
+            id: 'n-hh-2',
+            authorEmail: 'asangi@chapter3.ca',
+            authorName: 'Asangi Jasenthuliyana',
+            text: 'Filtered South End, Clayton Park, and Bedford routes in Canada Post Precision Targeter tool.',
+            timestamp: '2026-09-06 14:15'
+          }
+        ]
+      },
+      {
+        id: 't-hh-3',
+        clientId: 'c-home-health',
+        description: 'Draft initial PR media pitch framing Nova Scotia senior care waitlist bottlenecks',
+        assignedTo: 'megan@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-15',
+        status: 'Not Started',
+        phase: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+        workstream: '1. Coordinated PR & Brand Awareness',
+        sowDeliverableRef: 'PR Campaign',
+        isRecurring: false,
+        notes: []
+      },
+      {
+        id: 't-hh-4',
+        clientId: 'c-home-health',
+        description: 'Design direct mail print creative tailored to Sandwich Generation decision-makers',
+        assignedTo: 'asangi@chapter3.ca',
+        priority: 'Medium',
+        dueDate: '2026-09-24',
+        status: 'Not Started',
+        phase: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+        workstream: '2. Targeted Direct Mail Campaigns',
+        sowDeliverableRef: 'Creative Asset Development',
+        isRecurring: false,
+        notes: []
+      },
+      {
+        id: 't-hh-5',
+        clientId: 'c-home-health',
+        description: 'Configure automated provider onboarding email sequences and opt-in validation in HubSpot',
+        assignedTo: 'david@chapter3.ca',
+        priority: 'Medium',
+        dueDate: '2026-09-26',
+        status: 'Not Started',
+        phase: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+        workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+        sowDeliverableRef: 'Automated Workflow Configuration',
+        isRecurring: false,
+        notes: []
+      },
+      {
+        id: 't-hh-6',
+        clientId: 'c-home-health',
+        description: 'Launch direct mail distribution drop via Canada Post Precision Targeter routes',
+        assignedTo: 'asangi@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-10-08',
+        status: 'Not Started',
+        phase: 'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+        workstream: '2. Targeted Direct Mail Campaigns',
+        sowDeliverableRef: 'Canada Post Coordination',
+        isRecurring: false,
+        notes: []
+      },
+      {
+        id: 't-hh-7',
+        clientId: 'c-home-health',
+        description: 'Finalize PR media placements, conduct HubSpot data flow audit, and transition workflows to internal team',
+        assignedTo: 'mj@chapter3.ca',
+        priority: 'Medium',
+        dueDate: '2026-10-22',
+        status: 'Not Started',
+        phase: 'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)',
+        workstream: '1. Coordinated PR & Brand Awareness',
+        sowDeliverableRef: 'Media & Editorial Pitching',
+        isRecurring: false,
+        notes: []
+      },
+      {
+        id: 't-hh-8',
+        clientId: 'c-home-health',
+        description: 'Weekly strategic advisory session & founder momentum review with Alan MacKeen',
+        assignedTo: 'mj@chapter3.ca',
+        priority: 'High',
+        dueDate: '2026-09-10',
+        status: 'In Progress',
+        phase: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+        workstream: '5. Dedicated Weekly Strategic Advisory',
+        isRecurring: true,
+        notes: [
+          {
+            id: 'n-hh-3',
+            authorEmail: 'mj@chapter3.ca',
+            authorName: 'MJ Leslie',
+            text: 'Bi-weekly pacing is aligned on direct mail lead time. Next agenda: caregiver compensation model.',
+            timestamp: '2026-09-04 16:30'
+          }
+        ]
+      }
+    ]
+  },
+  {
     id: 'c-novapulse',
     name: 'NovaPulse Health (B2B SaaS)',
     type: 'Project',

@@ -13,7 +13,8 @@ import {
   Database,
   LogIn,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  Upload
 } from 'lucide-react';
 import { TeamMember, Role } from '../types';
 import { FirebaseUser } from '../firebase/config';
@@ -21,10 +22,10 @@ import { FirebaseUser } from '../firebase/config';
 interface NavbarProps {
   currentUser: TeamMember;
   teamMembers: TeamMember[];
-  onSelectUser: (user: TeamMember) => void;
   showInactive: boolean;
   onToggleShowInactive: (show: boolean) => void;
   onOpenAddClient: () => void;
+  onOpenSOWUpload?: () => void;
   activeClientCount: number;
   inactiveClientCount: number;
   totalOpenTasks: number;
@@ -37,11 +38,11 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
-  teamMembers,
-  onSelectUser,
+  teamMembers: _teamMembers,
   showInactive,
   onToggleShowInactive,
   onOpenAddClient,
+  onOpenSOWUpload,
   activeClientCount,
   inactiveClientCount,
   totalOpenTasks,
@@ -51,13 +52,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignOutGoogle,
   isSigningIn = false
 }) => {
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setUserDropdownOpen(false);
+        setProfileDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -150,6 +151,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
 
+            {/* Upload SOW Button */}
+            {onOpenSOWUpload && (
+              <button
+                type="button"
+                onClick={onOpenSOWUpload}
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-900/20 cursor-pointer active:scale-95"
+                title="Upload client Statement of Work to auto-extract deliverables and tasks"
+              >
+                <Upload className="w-3.5 h-3.5 text-sky-200" />
+                <span className="hidden sm:inline">Upload SOW</span>
+              </button>
+            )}
+
             {/* Add Client Card Button */}
             <button
               type="button"
@@ -199,12 +213,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* User Switcher Dropdown */}
+            {/* Verified Google Tenant User Profile (Locked Identity - No Persona Switching) */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center space-x-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700/90 rounded-xl px-3 py-1.5 transition-all text-left group"
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center space-x-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700/90 rounded-xl px-3 py-1.5 transition-all text-left group cursor-pointer"
+                title="View your verified Chapter 3 identity"
               >
                 {firebaseUser?.photoURL ? (
                   <img
@@ -214,13 +229,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${currentUser.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-[16px] pt-0.5 shadow shrink-0`}>
+                  <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${currentUser.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-[14px] pt-0.5 shadow shrink-0`}>
                     {currentUser.initials}
                   </div>
                 )}
                 <div className="hidden md:block">
                   <div className="flex items-center space-x-1.5">
-                    <span className="text-xs font-bold text-white truncate max-w-[110px]">{currentUser.name}</span>
+                    <span className="text-xs font-bold text-white truncate max-w-[120px]">{currentUser.name}</span>
                     <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded ${
                       isAdmin ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-sky-400/20 text-sky-300 border border-sky-400/30'
                     }`}>
@@ -228,133 +243,83 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">{currentUser.email}</span>
-                    {firebaseUser && (
-                      <span className="text-[9px] text-emerald-400 font-bold flex items-center space-x-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Google</span>
-                      </span>
-                    )}
+                    <span className="text-[10px] text-slate-400 block truncate max-w-[130px]">{currentUser.email}</span>
+                    <span className="text-[9px] text-emerald-400 font-bold flex items-center space-x-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>Tenant</span>
+                    </span>
                   </div>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-150 ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-150 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* User Dropdown Menu */}
-              {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-76 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in-50 zoom-in-95 duration-100">
-                  {/* Google Authenticated Status Banner */}
-                  {firebaseUser ? (
-                    <div className="px-3 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl mb-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Google Authenticated</span>
-                        </span>
-                        <span className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                          {currentUser.role}
-                        </span>
+              {/* Profile Details Dropdown (Strictly No Persona Switching Allowed) */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+                  {/* Authenticated Account Details */}
+                  <div className="px-3.5 py-3 bg-slate-950/80 border border-slate-800 rounded-xl mb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Google Tenant Verified</span>
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                        isAdmin ? 'bg-amber-400/20 text-amber-300' : 'bg-sky-400/20 text-sky-300'
+                      }`}>
+                        {currentUser.role}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center space-x-3">
+                      {firebaseUser?.photoURL ? (
+                        <img
+                          src={firebaseUser.photoURL}
+                          alt={currentUser.name}
+                          className="w-10 h-10 rounded-full object-cover shadow border border-sky-400/50"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${currentUser.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-base shadow shrink-0`}>
+                          {currentUser.initials}
+                        </div>
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-bold text-white truncate">
+                          {currentUser.name}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {currentUser.email}
+                        </p>
+                        <p className="text-[10px] text-sky-400 font-medium mt-0.5">
+                          {currentUser.title}
+                        </p>
                       </div>
-                      <p className="text-xs font-bold text-white mt-1 truncate">
-                        {firebaseUser.displayName || currentUser.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {firebaseUser.email}
-                      </p>
                     </div>
-                  ) : (
-                    <div className="px-3 py-2.5 bg-slate-950/70 border border-slate-800 rounded-xl mb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        Not Signed in with Google
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Sign in to sync your consultant profile and verify changes.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          if (onSignInGoogle) onSignInGoogle();
-                        }}
-                        className="w-full mt-2 flex items-center justify-center space-x-2 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
-                      >
-                        <LogIn className="w-3.5 h-3.5" />
-                        <span>Sign in with Google</span>
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="px-3 py-1.5 border-b border-slate-800 mb-1">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                      <span>Switch Team Persona</span>
-                      <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Preview permissions & role-based views</p>
                   </div>
 
-                  <div className="space-y-1 max-h-56 overflow-y-auto">
-                    {teamMembers.map((member) => {
-                      const isSelected = member.id === currentUser.id;
-                      const memberIsAdmin = member.role === 'Admin';
-                      return (
-                        <button
-                          key={member.id}
-                          type="button"
-                          onClick={() => {
-                            onSelectUser(member);
-                            setUserDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all text-left ${
-                            isSelected
-                              ? 'bg-slate-800 border border-sky-500/40 text-white'
-                              : 'hover:bg-slate-800/60 text-slate-300 hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2.5">
-                            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${member.avatarColor} flex items-center justify-center text-center leading-none select-none font-bold text-white text-[16px] pt-0.5 shadow-sm shrink-0`}>
-                              {member.initials}
-                            </div>
-                            <div>
-                              <div className="flex items-center space-x-1.5">
-                                <span className="text-xs font-semibold text-white">{member.name}</span>
-                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                                  memberIsAdmin ? 'bg-amber-400/20 text-amber-300' : 'bg-sky-400/20 text-sky-300'
-                                }`}>
-                                  {member.role}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-400">{member.title}</p>
-                            </div>
-                          </div>
-                          {isSelected && <Check className="w-4 h-4 text-sky-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Dropdown Logout button if user is authenticated with Google */}
-                  {firebaseUser && (
-                    <div className="mt-2 pt-2 border-t border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          if (onSignOutGoogle) onSignOutGoogle();
-                        }}
-                        className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-800/50 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Logout ({firebaseUser.email?.split('@')[0]})</span>
-                      </button>
+                  {/* Strict Security Policy Notice */}
+                  <div className="px-3 py-2 bg-slate-800/60 rounded-xl border border-slate-700/60 mb-3 space-y-1">
+                    <div className="flex items-center space-x-1.5 text-slate-300 text-xs font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Permanent Identity Binding</span>
                     </div>
-                  )}
-
-                  <div className="mt-2 pt-2 border-t border-slate-800 px-3 py-1.5 bg-slate-950/50 rounded-xl">
-                    <p className="text-[10px] text-slate-400 leading-tight">
-                      <strong className="text-slate-300">Admin:</strong> Client lifecycle & summary edits.<br />
-                      <strong className="text-slate-300">User:</strong> Task creation, statuses, deliverables, & notes.
+                    <p className="text-[11px] text-slate-400 leading-snug">
+                      Your session is permanently tagged to your Chapter 3 Google account. Persona switching is disabled for all users and administrators.
                     </p>
                   </div>
+
+                  {/* Logout Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      if (onSignOutGoogle) onSignOutGoogle();
+                    }}
+                    className="w-full flex items-center justify-center space-x-2 px-3 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-800/50 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Sign Out of Workspace</span>
+                  </button>
                 </div>
               )}
             </div>
