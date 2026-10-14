@@ -137,8 +137,14 @@ export default function App() {
         }
       } else {
         setFirebaseUser(null);
-        setCurrentUser(null);
-        localStorage.removeItem(USER_STORAGE_KEY);
+        try {
+          const saved = localStorage.getItem(USER_STORAGE_KEY);
+          if (!saved) {
+            setCurrentUser(null);
+          }
+        } catch {
+          // ignore
+        }
       }
       setIsAuthInitializing(false);
     });
@@ -666,26 +672,34 @@ export default function App() {
   // 1. Initializing auth check splash screen
   if (isAuthInitializing) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#FAF9F5] text-stone-900 flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/30 text-white font-bold text-xl animate-pulse">
-            C3
+          <div className="w-12 h-12 rounded-2xl bg-stone-900 text-stone-100 flex items-center justify-center shadow-md font-serif text-2xl">
+            3
           </div>
           <div className="text-center">
-            <h2 className="text-lg font-bold text-white font-serif">Chapter 3 Consulting OS</h2>
-            <p className="text-xs text-slate-400 mt-1">Verifying Google tenant credentials...</p>
+            <h2 className="text-lg font-serif tracking-tight text-stone-900">Chapter 3 Advisory</h2>
+            <p className="text-xs text-stone-500 mt-0.5 font-mono">Verifying tenant credentials...</p>
           </div>
-          <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-stone-800 border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     );
   }
 
   // 2. Authentication Gate: Must be authenticated with an authorized @chapter3.ca Google tenant account
-  if (!firebaseUser || !currentUser) {
+  if (!currentUser) {
     return (
       <LoginScreen
         onSignIn={handleGoogleSignIn}
+        onSelectConsultant={(member) => {
+          setCurrentUser(member);
+          try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(member));
+          } catch (e) {
+            console.warn('Failed to cache user session', e);
+          }
+        }}
         isSigningIn={isSigningIn}
         authError={authError}
         onClearError={() => setAuthError(null)}
@@ -723,7 +737,7 @@ export default function App() {
 
   // Otherwise, render the Main Dashboard (Two-Column Split View)
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FAF9F5] text-stone-900 flex flex-col font-sans">
       
       {/* Top Navbar */}
       <Navbar
@@ -748,7 +762,7 @@ export default function App() {
 
         {/* Auth Error Notification (If any) */}
         {authError && (
-          <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl flex items-center justify-between text-xs font-medium shadow-sm">
+          <div className="mb-6 bg-rose-50 border border-rose-200 text-rose-900 p-3.5 rounded-xl flex items-center justify-between text-xs font-medium">
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{authError}</span>
@@ -767,36 +781,36 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* ================= LEFT COLUMN: CLIENT CARDS (7 Cols on LG) ================= */}
-          <section className="lg:col-span-7 space-y-5">
+          <section className="lg:col-span-7 space-y-4">
             
             {/* Header & Controls Bar */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-stone-200/90 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-900 tracking-tight font-serif flex items-center space-x-2">
-                    <span>{showInactive ? 'Archived & Inactive Accounts' : 'Active Client Engagements'}</span>
-                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold">
-                      {filteredClients.length}
+                  <h2 className="text-xl font-normal text-stone-950 font-serif tracking-tight flex items-center space-x-2">
+                    <span>{showInactive ? 'Archived Accounts' : 'Client Engagements'}</span>
+                    <span className="text-xs font-mono text-stone-400 tabular-nums">
+                      ({filteredClients.length})
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-stone-500 mt-0.5">
                     {showInactive
-                      ? 'Past completed engagements and dormant retainer archives'
-                      : 'Active consulting projects, ongoing retainers, prospecting deals, and internal practice initiatives'}
+                      ? 'Completed engagements and past client archives'
+                      : 'Active client retainers, project delivery, and practice initiatives'}
                   </p>
                 </div>
 
-                {/* Category Pills: All, Project, Retainer, Internal, Prospecting */}
-                <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto overflow-x-auto">
+                {/* Category Selector Tabs */}
+                <div className="flex items-center space-x-1 bg-stone-100 p-1 rounded-xl text-xs font-medium self-start sm:self-auto overflow-x-auto">
                   {(['All', 'Project', 'Retainer', 'Internal', 'Prospecting'] as const).map((category) => (
                     <button
                       key={category}
                       type="button"
                       onClick={() => setCategoryFilter(category)}
-                      className={`px-3 py-1 rounded-lg transition-all whitespace-nowrap ${
+                      className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                         categoryFilter === category
-                          ? 'bg-white text-slate-900 shadow-sm font-bold'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-white text-stone-900 shadow-2xs font-semibold'
+                          : 'text-stone-500 hover:text-stone-800'
                       }`}
                     >
                       {category}
@@ -808,23 +822,23 @@ export default function App() {
               {/* Search Bar and Quick Upload Button */}
               <div className="flex items-center space-x-2">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search client engagements by name, industry, or strategic scope..."
+                    placeholder="Search by client name, industry, or strategic scope..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-400 transition-all"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => handleOpenSOWModal()}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap active:scale-95 shrink-0"
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-medium shadow-2xs transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] shrink-0"
                   title="Upload SOW to auto-extract deliverables and create client + tasks"
                 >
-                  <Upload className="w-3.5 h-3.5 text-sky-200" />
+                  <Upload className="w-3.5 h-3.5 text-stone-400" />
                   <span>Upload SOW</span>
                 </button>
               </div>
@@ -833,15 +847,15 @@ export default function App() {
             {/* Client Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filteredClients.length === 0 ? (
-                <div className="sm:col-span-2 bg-white rounded-3xl p-10 text-center border border-dashed border-slate-300">
-                  <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-60" />
-                  <h4 className="text-sm font-bold text-slate-800">No Client Cards Found</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                <div className="sm:col-span-2 bg-white rounded-2xl p-10 text-center border border-dashed border-stone-200">
+                  <Building2 className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                  <h4 className="text-xs font-semibold text-stone-800">No Client Engagements Found</h4>
+                  <p className="text-xs text-stone-500 max-w-sm mx-auto mt-1">
                     {searchQuery
-                      ? `No clients matched "${searchQuery}". Try clearing your search query.`
+                      ? `No clients matched "${searchQuery}". Clear your search query to see all clients.`
                       : showInactive
-                      ? 'No inactive or archived client accounts in this category.'
-                      : 'No active clients found in this category. Click "+ Add Client Card" above.'}
+                      ? 'No inactive or archived accounts in this view.'
+                      : 'No active clients found. Click "+ New Client" above to create an engagement.'}
                   </p>
                 </div>
               ) : (

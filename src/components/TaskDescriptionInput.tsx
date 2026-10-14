@@ -26,7 +26,7 @@ export const TaskDescriptionInput: React.FC<TaskDescriptionInputProps> = ({
   const [previousDraft, setPreviousDraft] = useState<string | null>(null);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Clear toast timeout on unmount

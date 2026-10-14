@@ -91,6 +91,18 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   const [summaryText, setSummaryText] = useState(client.projectSummary);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
+  // Gemini AI Strategic Assessment state
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    executiveSummary: string;
+    healthScore: number;
+    healthStatus?: string;
+    keyStrengths?: string[];
+    bottlenecks: string[];
+    workloadAssessment?: string;
+    recommendations: string[];
+  } | null>(null);
+
   // Workstream filter for tasks
   const [workstreamFilter, setWorkstreamFilter] = useState<string>('All');
 
@@ -189,59 +201,79 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
     setNoteInputs(prev => ({ ...prev, [taskId]: '' }));
   };
 
+  const handleRunAIAnalysis = async () => {
+    setIsLoadingAI(true);
+    try {
+      const res = await fetch('/api/gemini/analyze-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client,
+          activeTasks,
+          completedTasks,
+          teamMembers
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.analysis) {
+        setAiAnalysis(data.analysis);
+      }
+    } catch (err) {
+      console.error('Failed to run project analysis with Gemini:', err);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="min-h-screen bg-[#FAF9F5] text-stone-900 pb-16">
       
       {/* Top Breadcrumb & Navigation Bar */}
-      <div className="bg-slate-900 border-b border-slate-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="bg-[#FAF9F5]/90 backdrop-blur-md border-b border-stone-200/90 text-stone-900 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
           <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all border border-slate-700"
+              className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-white hover:bg-stone-100 text-stone-800 text-xs font-medium transition-all border border-stone-200 cursor-pointer shadow-2xs"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Dashboard</span>
+              <ArrowLeft className="w-3.5 h-3.5 text-stone-500" />
+              <span>Dashboard</span>
             </button>
 
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
-                  {firebaseUser?.photoURL ? (
-                    <img
-                      src={firebaseUser.photoURL}
-                      alt={currentUser.name}
-                      className="w-5 h-5 rounded-full object-cover shrink-0 border border-sky-400/40"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${currentUser.avatarColor} text-white font-bold text-[9px] flex items-center justify-center text-center select-none shrink-0`}>
-                      {currentUser.initials}
-                    </div>
-                  )}
-                  <span className="font-semibold text-white">{currentUser.name}</span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                    isAdmin ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' : 'bg-sky-400/20 text-sky-300 border border-sky-400/30'
-                  }`}>
-                    {currentUser.role}
-                  </span>
-                  <span className="text-[9px] text-emerald-400 font-bold flex items-center space-x-0.5 ml-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Tenant Verified</span>
-                  </span>
-                </div>
+              <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-xl border border-stone-200 text-xs shadow-2xs">
+                {firebaseUser?.photoURL ? (
+                  <img
+                    src={firebaseUser.photoURL}
+                    alt={currentUser.name}
+                    className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-stone-200"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-stone-900 text-white font-mono text-[9px] font-medium flex items-center justify-center shrink-0">
+                    {currentUser.initials}
+                  </div>
+                )}
+                <span className="font-medium text-stone-900">{currentUser.name}</span>
+                <span className="text-[10px] font-mono text-stone-400">
+                  ({currentUser.role})
+                </span>
+                <span className="text-[10px] text-emerald-600 font-mono flex items-center space-x-0.5 ml-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Tenant</span>
+                </span>
               </div>
 
               {firebaseUser && (
                 <button
                   type="button"
                   onClick={onSignOutGoogle}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-100 border border-rose-500/30 text-xs font-semibold transition-all cursor-pointer active:scale-95"
+                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-stone-500 hover:text-stone-900 text-xs transition-all cursor-pointer"
                   title="Sign out of workspace"
                 >
-                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Logout</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Logout</span>
                 </button>
               )}
             </div>
@@ -249,50 +281,34 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         
         {/* 1. Header: Client Title, Type Badge, Status, Admin Archival Controls */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-              <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-3 py-1 rounded-full border ${
-                client.type === 'Project' ? 'bg-blue-100 text-blue-900 border-blue-300' :
-                client.type === 'Retainer' ? 'bg-purple-100 text-purple-900 border-purple-300' :
-                client.type === 'Internal' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
-                'bg-orange-100 text-orange-950 border-orange-300'
-              }`}>
-                {client.type === 'Project' && <FolderKanban className="w-3.5 h-3.5" />}
-                {client.type === 'Retainer' && <Repeat className="w-3.5 h-3.5" />}
-                {client.type === 'Internal' && <Building className="w-3.5 h-3.5" />}
-                {client.type === 'Prospecting' && <Sparkles className="w-3.5 h-3.5" />}
-                <span>{client.type === 'Prospecting' ? 'Prospecting Deal' : `${client.type} Engagement`}</span>
+        <div className="bg-white rounded-2xl p-6 sm:p-7 border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex items-center space-x-2 text-xs text-stone-500 flex-wrap">
+              <span className="font-medium text-stone-800">
+                {client.type === 'Prospecting' ? 'Prospect Pipeline' : `${client.type} Engagement`}
               </span>
-
-              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                client.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-600 border-slate-300'
-              }`}>
-                {client.status === 'Active' ? '● Active Client' : '○ Inactive / Archived'}
+              <span aria-hidden="true">·</span>
+              <span className={client.status === 'Active' ? 'text-emerald-700 font-medium' : 'text-stone-400'}>
+                {client.status === 'Active' ? 'Active' : 'Archived'}
               </span>
-
               {client.industry && (
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                  {client.industry}
-                </span>
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{client.industry}</span>
+                </>
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-serif tracking-tight">
+            <h1 className="font-serif text-3xl sm:text-4xl font-normal text-stone-950 tracking-tight">
               {client.name}
             </h1>
-            {client.type === 'Prospecting' && (
-              <p className="text-xs font-bold text-orange-700 italic">
-                Exploring New Engagement
-              </p>
-            )}
 
             {/* Changeable Lead Practice Consultant */}
             <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1 text-xs">
-              <span className="text-slate-500 font-medium">Lead Practice Consultant:</span>
+              <span className="text-stone-400">Lead Consultant:</span>
               <select
                 value={client.leadConsultant || 'All'}
                 onChange={(e) => {
@@ -301,8 +317,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                     leadConsultant: e.target.value
                   });
                 }}
-                className="bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer transition-colors"
-                title="Change Lead Practice Consultant at any time"
+                className="bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-lg px-2.5 py-1 text-xs font-medium text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-400 cursor-pointer transition-colors"
+                title="Change Lead Practice Consultant"
               >
                 <option value="All">All</option>
                 {teamMembers.map((m) => (
@@ -315,16 +331,16 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           </div>
 
           {/* Archival & Status Controls & SOW Upload */}
-          <div className="flex items-center space-x-2.5 shrink-0 flex-wrap gap-y-2">
+          <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2">
             {isAdmin && onOpenSOWUpload && (
               <button
                 type="button"
                 onClick={() => onOpenSOWUpload(client.id)}
-                className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-stone-900 hover:bg-stone-800 text-white shadow-2xs transition-all cursor-pointer"
                 title="Upload SOW or add new SOW Phase to this client"
               >
-                <Upload className="w-4 h-4 text-sky-400" />
-                <span>Upload SOW / Add Phase</span>
+                <Upload className="w-3.5 h-3.5 text-stone-400" />
+                <span>Upload SOW / Phase</span>
               </button>
             )}
 
@@ -332,20 +348,19 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               <button
                 type="button"
                 onClick={handleToggleClientStatus}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm ${
+                className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all border ${
                   client.status === 'Active'
-                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
+                    ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200'
+                    : 'bg-stone-900 hover:bg-stone-800 text-white border-transparent'
                 }`}
-                title={client.type === 'Prospecting' ? "Manual archive/unarchive for prospecting engagement" : "Admin permission: Toggle client between Active and Archived/Inactive"}
               >
-                <Archive className="w-4 h-4" />
-                <span>{client.status === 'Active' ? (client.type === 'Prospecting' ? 'Archive Deal' : 'Set as Inactive / Archive') : 'Reactivate Client Card'}</span>
+                <Archive className="w-3.5 h-3.5 text-stone-400" />
+                <span>{client.status === 'Active' ? 'Archive Account' : 'Reactivate'}</span>
               </button>
             ) : (
-              <div className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 rounded-xl text-slate-400 text-xs font-medium border border-slate-200">
-                <Lock className="w-3.5 h-3.5" />
-                <span>Admin controls locked for {currentUser.name}</span>
+              <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-stone-50 rounded-lg text-stone-400 text-xs font-mono border border-stone-200">
+                <Lock className="w-3 h-3" />
+                <span>Locked</span>
               </div>
             )}
           </div>
@@ -364,46 +379,59 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
         )}
 
         {/* 2. Project Summary Section: Editable for Admins */}
-        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center space-x-2">
-              <Building2 className="w-4 h-4 text-sky-600" />
+        <div className="bg-white rounded-2xl p-6 border border-stone-200/90 shadow-2xs">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-100">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-stone-500 flex items-center space-x-2">
+              <Building2 className="w-3.5 h-3.5 text-stone-500" />
               <span>Project Summary & Strategic Scope</span>
             </h3>
 
-            {isAdmin && (
-              !isEditingSummary ? (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingSummary(true)}
-                  className="flex items-center space-x-1 text-xs text-sky-600 hover:text-sky-800 font-bold px-2.5 py-1 rounded-lg hover:bg-sky-50 transition-colors"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit Scope</span>
-                </button>
-              ) : (
-                <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={handleRunAIAnalysis}
+                disabled={isLoadingAI}
+                className="inline-flex items-center space-x-1.5 px-3 py-1 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-medium transition-all shadow-2xs cursor-pointer active:scale-[0.98] disabled:opacity-60"
+                title="Run Chapter 3 Gemini AI Project Health Assessment"
+              >
+                <Sparkles className={`w-3.5 h-3.5 text-stone-300 ${isLoadingAI ? 'animate-spin' : ''}`} />
+                <span>{isLoadingAI ? 'Analyzing...' : aiAnalysis ? 'Refresh Assessment' : 'AI Health Assessment'}</span>
+              </button>
+
+              {isAdmin && (
+                !isEditingSummary ? (
                   <button
                     type="button"
-                    onClick={handleSaveSummary}
-                    className="flex items-center space-x-1 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors shadow-sm"
+                    onClick={() => setIsEditingSummary(true)}
+                    className="inline-flex items-center space-x-1 text-xs text-stone-700 hover:text-stone-950 font-medium px-2 py-1 rounded-md hover:bg-stone-50 transition-colors cursor-pointer"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save</span>
+                    <Edit3 className="w-3 h-3 text-stone-400" />
+                    <span>Edit Scope</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSummaryText(client.projectSummary);
-                      setIsEditingSummary(false);
-                    }}
-                    className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )
-            )}
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveSummary}
+                      className="inline-flex items-center space-x-1 bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium px-3 py-1 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>Save</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSummaryText(client.projectSummary);
+                        setIsEditingSummary(false);
+                      }}
+                      className="text-xs text-stone-500 hover:text-stone-700 px-2 py-1 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
           </div>
 
           {isEditingSummary ? (
@@ -411,83 +439,186 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               rows={4}
               value={summaryText}
               onChange={(e) => setSummaryText(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-300 rounded-2xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none leading-relaxed"
+              className="w-full p-3 bg-stone-50 border border-stone-300 rounded-xl text-xs text-stone-900 focus:ring-1 focus:ring-stone-400 focus:outline-none leading-relaxed"
               placeholder="Enter client scope, objectives, and deliverables..."
             />
           ) : (
-            <p className="text-sm text-slate-700 leading-relaxed">
+            <p className="text-sm text-stone-700 leading-relaxed font-normal">
               {client.projectSummary || 'No project summary provided.'}
             </p>
           )}
 
+          {/* AI Strategic Assessment Results Card */}
+          {aiAnalysis && (
+            <div className="mt-4 p-5 bg-stone-900 text-stone-100 rounded-2xl border border-stone-800 shadow-md space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-800">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-stone-800 flex items-center justify-center text-amber-400 border border-stone-700">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-serif text-stone-100 tracking-tight text-sm font-normal">
+                      Executive Strategic Assessment
+                    </h4>
+                    <p className="text-[10px] text-stone-400 font-mono">
+                      Powered by Gemini 3.8 Flash · Chapter 3 Operations Advisory
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1.5 bg-stone-800 px-3 py-1 rounded-xl border border-stone-700 text-xs font-mono">
+                    <span className="text-stone-400 text-[11px]">Health:</span>
+                    <strong className="text-stone-100 font-bold">{aiAnalysis.healthScore}/100</strong>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-sans font-medium ${
+                      aiAnalysis.healthScore >= 80 ? 'bg-emerald-950 text-emerald-300' :
+                      aiAnalysis.healthScore >= 60 ? 'bg-amber-950 text-amber-300' :
+                      'bg-rose-950 text-rose-300'
+                    }`}>
+                      {aiAnalysis.healthStatus || (aiAnalysis.healthScore >= 80 ? 'On Track' : 'Attention Needed')}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setAiAnalysis(null)}
+                    className="text-stone-400 hover:text-stone-200 p-1 cursor-pointer"
+                    title="Dismiss Assessment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Assessment Narrative */}
+              <p className="text-xs text-stone-300 leading-relaxed">
+                {aiAnalysis.executiveSummary}
+              </p>
+
+              {/* Bottlenecks & Recommendations Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {/* Bottlenecks / Risks */}
+                <div className="bg-stone-950/60 p-3.5 rounded-xl border border-stone-800/80 space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/90 block font-semibold">
+                    Identified Bottlenecks & Timeline Risks:
+                  </span>
+                  {aiAnalysis.bottlenecks && aiAnalysis.bottlenecks.length > 0 ? (
+                    <ul className="space-y-1 text-stone-300 text-[11px]">
+                      {aiAnalysis.bottlenecks.map((b, idx) => (
+                        <li key={idx} className="flex items-start space-x-1.5">
+                          <span className="text-amber-500 font-bold">•</span>
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-stone-400 text-[11px] italic">No active bottlenecks detected.</p>
+                  )}
+                </div>
+
+                {/* Recommendations */}
+                <div className="bg-stone-950/60 p-3.5 rounded-xl border border-stone-800/80 space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/90 block font-semibold">
+                    Consulting Action Items:
+                  </span>
+                  {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 ? (
+                    <ul className="space-y-1 text-stone-300 text-[11px]">
+                      {aiAnalysis.recommendations.map((r, idx) => (
+                        <li key={idx} className="flex items-start space-x-1.5">
+                          <span className="text-emerald-500 font-bold">•</span>
+                          <span>{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-stone-400 text-[11px] italic">Maintain current execution cadence.</p>
+                  )}
+                </div>
+              </div>
+
+              {aiAnalysis.workloadAssessment && (
+                <p className="text-[11px] text-stone-400 font-mono pt-1 border-t border-stone-800">
+                  Workload: {aiAnalysis.workloadAssessment}
+                </p>
+              )}
+            </div>
+          )}
+
+          {isLoadingAI && !aiAnalysis && (
+            <div className="mt-4 p-4 bg-stone-100 rounded-2xl border border-stone-200 text-xs flex items-center space-x-3 text-stone-600 animate-pulse">
+              <Sparkles className="w-4 h-4 text-stone-500 animate-spin" />
+              <span>Chapter 3 Strategic Operations Engine analyzing milestones & team workload with Gemini 3.8 Flash...</span>
+            </div>
+          )}
+
           {/* If Project type, show completion summary */}
           {client.type === 'Project' && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="flex items-center justify-between text-xs mb-1.5 font-semibold">
-                <span className="text-slate-600">
-                  Deliverables Progress ({stats.completedTasks}/{stats.totalTasks} Completed)
+            <div className="mt-4 pt-4 border-t border-stone-100">
+              <div className="flex items-center justify-between text-xs mb-1.5 font-mono tabular-nums">
+                <span className="text-stone-500">
+                  Deliverables ({stats.completedTasks}/{stats.totalTasks} Completed)
                 </span>
-                <span className={`font-bold ${progressTheme.textClass}`}>
-                  {stats.percentage}% • {progressTheme.label}
+                <span className="font-semibold text-stone-900">
+                  {stats.percentage}%
                 </span>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${progressTheme.bgClass}`}
-                  style={{ width: `${Math.min(100, Math.max(stats.percentage, 4))}%` }}
+                  className="h-full bg-stone-900 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(stats.percentage, 3))}%` }}
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* View Tabs: Active Tasks vs Historical Completed Tasks vs Gemini Visualizer */}
-        <div className="flex items-center space-x-2 border-b border-slate-200 pb-2">
+        {/* View Tabs */}
+        <div className="flex items-center space-x-1 bg-stone-200/60 p-1 rounded-xl w-fit text-xs font-medium">
           <button
             type="button"
             onClick={() => setActiveTab('tasks')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
               activeTab === 'tasks'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'bg-white text-stone-900 shadow-2xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <ListTodo className="w-4 h-4" />
+            <ListTodo className="w-3.5 h-3.5 text-stone-500" />
             <span>Active Workstreams</span>
-            <span className="bg-sky-500/30 text-sky-200 px-2 py-0.2 rounded-full text-[10px]">
-              {activeTasks.length}
+            <span className="font-mono text-[10px] tabular-nums text-stone-400">
+              ({activeTasks.length})
             </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
               activeTab === 'history'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'bg-white text-stone-900 shadow-2xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <History className="w-4 h-4" />
-            <span>Historical Completed Tasks</span>
-            <span className="bg-slate-700 text-slate-300 px-2 py-0.2 rounded-full text-[10px]">
-              {completedTasks.length}
+            <History className="w-3.5 h-3.5 text-stone-500" />
+            <span>Completed History</span>
+            <span className="font-mono text-[10px] tabular-nums text-stone-400">
+              ({completedTasks.length})
             </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('sow')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
               activeTab === 'sow'
-                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-900/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'bg-white text-stone-900 shadow-2xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <FileSpreadsheet className="w-4 h-4 text-sky-300" />
-            <span>SOW</span>
-            <span className="bg-white/20 text-white px-2 py-0.2 rounded-full text-[10px]">
-              {client.tasks.length}
+            <FileSpreadsheet className="w-3.5 h-3.5 text-stone-500" />
+            <span>Statement of Work (SOW)</span>
+            <span className="font-mono text-[10px] tabular-nums text-stone-400">
+              ({client.tasks.length})
             </span>
           </button>
         </div>
@@ -497,14 +628,14 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           <div className="space-y-4">
             
             {/* Action Bar & Search / Filter Controls */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-stone-200/90 shadow-2xs">
               <div className="flex items-center space-x-2 flex-1 flex-wrap gap-y-2">
                 <input
                   type="text"
-                  placeholder="Filter client tasks..."
+                  placeholder="Filter tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-48 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="w-full sm:w-44 px-2.5 py-1 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-400"
                 />
 
                 {/* Workstream Filter if client has workstreams */}
@@ -563,15 +694,15 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setAssigneeFilter(assigneeFilter === 'unassigned' ? 'All' : 'unassigned')}
-                    className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all flex items-center space-x-1 cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs transition-all flex items-center space-x-1 cursor-pointer ${
                       assigneeFilter === 'unassigned'
-                        ? 'bg-amber-600 text-white shadow-sm'
-                        : 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100'
+                        ? 'bg-amber-800 text-white font-semibold'
+                        : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 font-medium'
                     }`}
                   >
-                    <span>⚡ Needs Assignee</span>
-                    <span className="bg-amber-200/80 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                      {unassignedTasksCount}
+                    <span>Needs Assignee</span>
+                    <span className="font-mono text-[10px] tabular-nums font-bold">
+                      ({unassignedTasksCount})
                     </span>
                   </button>
                 )}
@@ -581,24 +712,24 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddTaskModalOpen(true)}
-                className="flex items-center space-x-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-medium shadow-2xs transition-all cursor-pointer active:scale-[0.98]"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Add Task</span>
               </button>
             </div>
 
             {/* Active Tasks List */}
             {filteredActiveTasks.length === 0 ? (
-              <div className="bg-white rounded-3xl p-10 text-center border border-dashed border-slate-300">
-                <CheckCircle2 className="w-10 h-10 text-teal-500 mx-auto mb-2 opacity-80" />
-                <h4 className="text-sm font-bold text-slate-800">No Active Tasks</h4>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              <div className="bg-white rounded-2xl p-8 text-center border border-dashed border-stone-200">
+                <CheckCircle2 className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                <h4 className="text-xs font-semibold text-stone-800">No Active Tasks</h4>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto mt-0.5">
                   All workstreams for {client.name} are completed or archived. Click "Add Task" to create a new deliverable.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {filteredActiveTasks.map((task) => {
                   const overdue = isOverdue(task.dueDate, task.status);
                   const isNotesExpanded = expandedNotesId === task.id;
@@ -607,11 +738,11 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                   return (
                     <div
                       key={task.id}
-                      className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:border-slate-300 transition-all space-y-3"
+                      className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-2xs hover:border-stone-300 transition-all space-y-2.5"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1.5 flex-wrap gap-y-1">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1 flex-wrap gap-y-1 text-xs">
                             {/* PRIORITY: Editable by Admin, Read-only for Users */}
                             {isAdmin ? (
                               <div className="relative inline-flex items-center">
@@ -619,31 +750,30 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                                   value={task.priority}
                                   onChange={(e) => onUpdateTaskPriority(client.id, task.id, e.target.value as TaskPriority)}
                                   title="Admin: Change Priority"
-                                  className={`text-[10px] font-extrabold uppercase px-2.5 py-1 pr-6 rounded-md border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                                    task.priority === 'High' ? 'bg-rose-100 hover:bg-rose-200/80 text-rose-700 border-rose-300' :
-                                    task.priority === 'Medium' ? 'bg-amber-100 hover:bg-amber-200/80 text-amber-800 border-amber-300' :
-                                    task.priority === 'Low' ? 'bg-sky-100 hover:bg-sky-200/80 text-sky-700 border-sky-300' :
-                                    'bg-slate-100 hover:bg-slate-200/80 text-slate-600 border-slate-300'
+                                  className={`text-[10px] font-mono uppercase px-2 py-0.5 pr-5 rounded-md border appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-stone-400 transition-colors font-semibold ${
+                                    task.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                    task.priority === 'Medium' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                    task.priority === 'Low' ? 'bg-stone-50 text-stone-700 border-stone-200' :
+                                    'bg-stone-50 text-stone-500 border-stone-200'
                                   }`}
                                 >
-                                  <option value="High">High Priority</option>
-                                  <option value="Medium">Medium Priority</option>
-                                  <option value="Low">Low Priority</option>
+                                  <option value="High">High</option>
+                                  <option value="Medium">Medium</option>
+                                  <option value="Low">Low</option>
                                   <option value="Unassigned">Unassigned</option>
                                 </select>
-                                <ChevronDown className="w-2.5 h-2.5 absolute right-2 pointer-events-none opacity-60 text-slate-600" />
+                                <ChevronDown className="w-2.5 h-2.5 absolute right-1.5 pointer-events-none opacity-50 text-stone-500" />
                               </div>
                             ) : (
                               <span
-                                title="Priority set by Admin (Admin role required to edit)"
-                                className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md border ${
-                                  task.priority === 'High' ? 'bg-rose-100 text-rose-700 border-rose-300' :
-                                  task.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                                  task.priority === 'Low' ? 'bg-sky-100 text-sky-700 border-sky-300' :
-                                  'bg-slate-100 text-slate-600 border-slate-300'
+                                className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md border font-semibold ${
+                                  task.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                  task.priority === 'Medium' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                  task.priority === 'Low' ? 'bg-stone-50 text-stone-700 border-stone-200' :
+                                  'bg-stone-50 text-stone-500 border-stone-200'
                                 }`}
                               >
-                                {task.priority} Priority
+                                {task.priority}
                               </span>
                             )}
 
