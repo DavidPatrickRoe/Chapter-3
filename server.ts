@@ -295,15 +295,12 @@ Draft Task Description:
         });
       }
       const prompt = `You are a Principal Management Consultant & Operations Director at Chapter 3, an elite B2B sales and marketing consulting firm (brand: https://chapter3.ca/).
-Carefully analyze the following Statement of Work (SOW) document and extract a comprehensive, executive-level project structure for our CRM and task management platform.
+Carefully analyze the following Statement of Work (SOW) document and extract the exact project structure for our client management platform.
 
 Document Content:
 """
 ${rawInput}
 """
-
-Available Chapter 3 Team Members for Task Assignment:
-${JSON.stringify(teamList)}
 
 Instructions:
 1. Extract Client Name (e.g. "Home + Health"), Engagement Title (e.g. "Campaign Execution & Strategic Advisory" or "Phase 2: Provincial Expansion"), and appropriate Industry.
@@ -313,15 +310,12 @@ Instructions:
 5. Extract all Signatories (Name, Title, Party/Company).
 6. Extract all distinct Workstreams (e.g., ["1. Coordinated PR & Brand Awareness", "2. Targeted Direct Mail Campaigns", ...]).
 7. Extract Timeline Milestones table (timeline interval like "Month 1: Weeks 1–2", milestone name, and key activities).
-8. Formulate 3-5 clean Project Phases that can be visualized on a timeline (e.g., ["Phase 1: Project Kickoff & Setup (Weeks 1–2)", "Phase 2: Campaign Development & Production (Weeks 3–4)", "Phase 3: Campaign Execution (Weeks 5–6)", "Phase 4: Optimization & Hand-Off (Weeks 7–8)"]).
-9. Extract a granular, actionable breakdown of CRM Tasks from ALL workstreams, deliverables, and milestone key activities.
-   - Each task MUST have a clear, professional description starting with an active imperative verb (e.g., "Design and coordinate low-cost media campaign targeting provincial news outlets", "Configure HubSpot automated onboarding workflows and segmentation").
-   - Assign appropriate workstream name.
-   - Map each task to the most relevant Phase from the phases list above.
-   - Set Priority: "High" (kickoff, critical path, high-impact) | "Medium" (standard deliverables) | "Low".
-   - CRITICAL REQUIREMENT: Set assignedToEmail to null (Unassigned) by default for ALL extracted tasks, so the consulting director can assign tasks during review.
-   - Assign approximate due date offset (days from today, e.g. 7 for week 1, 14 for week 2, 21 for week 3, 28 for week 4, 42 for month 2, etc.).
-   - Flag any recurring tasks (e.g. weekly strategic advisory meetings).
+8. STRICT REQUIREMENT FOR SCOPE OF WORK PHASES & ACTION ITEMS:
+   - Extract the phases exactly as specified in the SOW (e.g. from the Timeline/Milestones or Phase sections).
+   - Pull the action items from the SOW AS DIRECTLY AND LITERALLY AS POSSIBLE, WITHOUT INTERPRETATION.
+   - Do NOT rephrase or interpret with active verbs; preserve the EXACT WORDING from the SOW deliverables, activities, or scope bullets.
+   - Organize each action item under its specified Phase.
+   - Assign reasonable due date offset in days from today (e.g. 14 for Phase 1, 28 for Phase 2, 42 for Phase 3, 56 for Phase 4).
 
 Return ONLY valid JSON matching this schema:
 {
@@ -332,6 +326,20 @@ Return ONLY valid JSON matching this schema:
   "leadConsultant": "string",
   "projectSummary": "string",
   "phases": ["Phase 1: ...", "Phase 2: ..."],
+  "sowPhases": [
+    {
+      "name": "Phase 1: Project Kickoff & Setup (Weeks 1–2)",
+      "timeline": "Weeks 1–2",
+      "items": [
+        {
+          "wording": "Exact literal wording of deliverable or action item from SOW",
+          "dayOffset": 14,
+          "workstream": "string",
+          "deliverableRef": "string"
+        }
+      ]
+    }
+  ],
   "pricing": {
     "fee": "string",
     "model": "Flat Rate" | "Retainer" | "Hourly" | "Milestone",
@@ -347,18 +355,6 @@ Return ONLY valid JSON matching this schema:
   "workstreams": ["string"],
   "deliverables": [
     { "title": "string", "description": "string", "workstream": "string" }
-  ],
-  "tasks": [
-    {
-      "description": "string",
-      "workstream": "string",
-      "phase": "string",
-      "priority": "High" | "Medium" | "Low",
-      "assignedToEmail": null,
-      "dayOffset": number,
-      "deliverableRef": "string",
-      "isRecurring": boolean
-    }
   ]
 }`;
 

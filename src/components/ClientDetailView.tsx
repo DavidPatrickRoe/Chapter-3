@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Building2, 
@@ -29,16 +29,17 @@ import {
   Link as LinkIcon,
   FileSpreadsheet,
   LogIn,
-  LogOut
+  LogOut,
+  FileText,
+  Upload
 } from 'lucide-react';
-import { Client, Task, TaskPriority, TaskStatus, TeamMember, TaskNote } from '../types';
-import { getProjectCompletionStats, getProgressBarColor, formatDate, isOverdue, isDueToday } from '../utils/helpers';
+import { Client, Task, TaskPriority, TaskStatus, TeamMember, TaskNote, SOWActionItem, SOWItemStatus } from '../types';
+import { getProjectCompletionStats, getProgressBarColor, formatDate, isOverdue, isDueToday, getClientSOWPhases } from '../utils/helpers';
 import { GanttTimelineVisualizer } from './GanttTimelineVisualizer';
 import { ProspectingTimeline } from './ProspectingTimeline';
 import { TaskDescriptionInput } from './TaskDescriptionInput';
 import { SOWDetailTab } from './SOWDetailTab';
 import { FirebaseUser } from '../firebase/config';
-import { Upload } from 'lucide-react';
 
 interface ClientDetailViewProps {
   client: Client;
@@ -58,6 +59,7 @@ interface ClientDetailViewProps {
   onResetRecurringTask: (clientId: string, taskId: string) => void;
   onPromptWonProspect?: (client: Client) => void;
   onOpenSOWUpload?: (clientId?: string) => void;
+  onDeleteClient?: (clientId: string) => void;
   firebaseUser?: FirebaseUser | null;
   onSignInGoogle?: () => void;
   onSignOutGoogle?: () => void;
@@ -81,6 +83,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   onResetRecurringTask,
   onPromptWonProspect,
   onOpenSOWUpload,
+  onDeleteClient,
   firebaseUser,
   onSignInGoogle,
   onSignOutGoogle
@@ -89,7 +92,48 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'sow'>('tasks');
   const [isEditingSummary, setIsEditingSummary] = useState(false);
   const [summaryText, setSummaryText] = useState(client.projectSummary);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameText, setNameText] = useState(client.name);
+
+  useEffect(() => {
+    setNameText(client.name);
+  }, [client.name]);
+
+  const handleSaveName = () => {
+    if (!isAdmin) return;
+    const trimmed = nameText.trim();
+    if (!trimmed) {
+      setNameText(client.name);
+      setIsEditingName(false);
+      return;
+    }
+    if (trimmed !== client.name) {
+      onUpdateClient({
+        ...client,
+        name: trimmed
+      });
+    }
+    setIsEditingName(false);
+  };
+
+  const getEngagementTypeLabel = (type: string) => {
+    switch (type) {
+      case 'Internal':
+        return 'Internal';
+      case 'Retainer':
+        return 'Retainer';
+      case 'Project':
+        return 'Project';
+      case 'Prospecting':
+        return 'Prospect';
+      default:
+        return type;
+    }
+  };
+
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
 
   // Gemini AI Strategic Assessment state
   const [isLoadingAI, setIsLoadingAI] = useState(false);
@@ -131,6 +175,39 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   const stats = getProjectCompletionStats(client);
   const progressTheme = getProgressBarColor(stats.percentage);
 
+  const sowPhases = getClientSOWPhases(client);
+  const totalSOWActionItems = sowPhases.reduce((acc, p) => acc + p.items.length, 0);
+
+  const handleUpdateSOWItemStatus = (itemId: string, newStatus: SOWItemStatus) => {
+    const basePhases = client.sowPhases && client.sowPhases.length > 0 ? client.sowPhases : sowPhases;
+    const updatedSOWPhases = basePhases.map(p => ({
+      ...p,
+      items: p.items.map(item => item.id === itemId ? { ...item, status: newStatus } : item)
+    }));
+    const allItems = updatedSOWPhases.flatMap(p => p.items);
+
+    onUpdateClient({
+      ...client,
+      sowPhases: updatedSOWPhases,
+      sowItems: allItems
+    });
+  };
+
+  const handleUpdateSOWItemDueDate = (itemId: string, newDueDate: string) => {
+    const basePhases = client.sowPhases && client.sowPhases.length > 0 ? client.sowPhases : sowPhases;
+    const updatedSOWPhases = basePhases.map(p => ({
+      ...p,
+      items: p.items.map(item => item.id === itemId ? { ...item, dueDate: newDueDate } : item)
+    }));
+    const allItems = updatedSOWPhases.flatMap(p => p.items);
+
+    onUpdateClient({
+      ...client,
+      sowPhases: updatedSOWPhases,
+      sowItems: allItems
+    });
+  };
+
   // Active tasks (Open workstreams) vs Completed History
   const activeTasks = client.tasks.filter(t => t.status !== 'Complete' && t.status !== 'Cancelled');
   const completedTasks = client.tasks.filter(t => t.status === 'Complete' || t.status === 'Cancelled');
@@ -160,12 +237,32 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
   };
 
   const handleToggleClientStatus = () => {
-    if (!isAdmin) return;
+    // Non-admin users are strictly not allowed to archive active clients
+    if (client.status === 'Active' && !isAdmin) {
+      return;
+    }
+    if (!isAdmin) {
+      return;
+    }
     const nextStatus = client.status === 'Active' ? 'Inactive' : 'Active';
     onUpdateClient({
       ...client,
       status: nextStatus
     });
+  };
+
+  const handleConfirmDeleteClient = async () => {
+    if (!isAdmin || !onDeleteClient) return;
+    setIsDeletingClient(true);
+    try {
+      await onDeleteClient(client.id);
+      setIsDeleteConfirmOpen(false);
+      onBack();
+    } catch (err) {
+      console.error('Failed to delete client:', err);
+    } finally {
+      setIsDeletingClient(false);
+    }
   };
 
   const handleCreateTaskSubmit = (e: React.FormEvent) => {
@@ -288,7 +385,7 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center space-x-2 text-xs text-stone-500 flex-wrap">
               <span className="font-medium text-stone-800">
-                {client.type === 'Prospecting' ? 'Prospect Pipeline' : `${client.type} Engagement`}
+                {getEngagementTypeLabel(client.type)}
               </span>
               <span aria-hidden="true">·</span>
               <span className={client.status === 'Active' ? 'text-emerald-700 font-medium' : 'text-stone-400'}>
@@ -302,9 +399,69 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               )}
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-4xl font-normal text-stone-950 tracking-tight">
-              {client.name}
-            </h1>
+            {/* Client Title / Editable for Admins Only */}
+            {isEditingName ? (
+              <div className="flex items-center space-x-2 py-1 flex-wrap gap-y-2">
+                <input
+                  type="text"
+                  value={nameText}
+                  onChange={(e) => setNameText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveName();
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                      setNameText(client.name);
+                    }
+                  }}
+                  autoFocus
+                  className="font-serif text-2xl sm:text-3xl font-normal text-stone-950 bg-stone-50 border border-stone-300 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-stone-500 w-full max-w-md shadow-2xs"
+                  placeholder="Engagement name"
+                />
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSaveName}
+                    disabled={!nameText.trim()}
+                    className="inline-flex items-center space-x-1 bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNameText(client.name);
+                      setIsEditingName(false);
+                    }}
+                    className="text-xs text-stone-500 hover:text-stone-700 px-2.5 py-2 cursor-pointer rounded-xl hover:bg-stone-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3 group/name">
+                <h1 className="font-serif text-3xl sm:text-4xl font-normal text-stone-950 tracking-tight">
+                  {client.name}
+                </h1>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNameText(client.name);
+                      setIsEditingName(true);
+                    }}
+                    className="inline-flex items-center space-x-1 text-xs text-stone-500 hover:text-stone-950 font-medium px-2 py-1 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
+                    title="Rename engagement (Admin only)"
+                  >
+                    <Edit3 className="w-3 h-3 text-stone-400" />
+                    <span>Edit Name</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Changeable Lead Practice Consultant */}
             <div className="flex items-center space-x-2 pt-1 flex-wrap gap-y-1 text-xs">
@@ -344,24 +501,42 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
               </button>
             )}
 
-            {(isAdmin || client.type === 'Prospecting') ? (
+            {/* Archive Account / Reactivate Controls: Strictly Admin Only */}
+            {isAdmin ? (
               <button
                 type="button"
                 onClick={handleToggleClientStatus}
-                className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all border ${
+                className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                   client.status === 'Active'
-                    ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200'
-                    : 'bg-stone-900 hover:bg-stone-800 text-white border-transparent'
+                    ? 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200 shadow-2xs'
+                    : 'bg-stone-900 hover:bg-stone-800 text-white border-transparent shadow-2xs'
                 }`}
+                title={client.status === 'Active' ? 'Archive this active client engagement (Admin only)' : 'Reactivate archived client engagement (Admin only)'}
               >
                 <Archive className="w-3.5 h-3.5 text-stone-400" />
                 <span>{client.status === 'Active' ? 'Archive Account' : 'Reactivate'}</span>
               </button>
             ) : (
-              <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-stone-50 rounded-lg text-stone-400 text-xs font-mono border border-stone-200">
-                <Lock className="w-3 h-3" />
-                <span>Locked</span>
+              <div 
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-stone-50 rounded-xl text-stone-400 text-xs font-mono border border-stone-200 select-none"
+                title={client.status === 'Active' ? 'Non-admin users are not permitted to archive active clients' : 'Non-admin users are not permitted to reactivate inactive clients'}
+              >
+                <Lock className="w-3 h-3 text-stone-400" />
+                <span>{client.status === 'Active' ? 'Archival Locked (Admin Only)' : 'Reactivation Locked (Admin Only)'}</span>
               </div>
+            )}
+
+            {/* Permanent Delete Client Control: Strictly Admin Only */}
+            {isAdmin && onDeleteClient && (
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-800 border border-rose-200 shadow-2xs transition-all cursor-pointer active:scale-[0.98]"
+                title="Permanently delete this client card and all associated deliverables (Admin only)"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Delete Client</span>
+              </button>
             )}
           </div>
         </div>
@@ -371,6 +546,8 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
           <div className="bg-orange-50/90 rounded-3xl p-6 border-2 border-orange-500 shadow-sm">
             <ProspectingTimeline
               client={client}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
               onUpdateClient={onUpdateClient}
               onPromptWonProspect={onPromptWonProspect}
               compact={false}
@@ -568,6 +745,173 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                   style={{ width: `${Math.min(100, Math.max(stats.percentage, 3))}%` }}
                 />
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Scope of Work (SOW) Section: Exact wording and phases from uploaded SOW */}
+        <div className="bg-white rounded-2xl p-6 border border-stone-200/90 shadow-2xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-100">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                <h3 className="font-serif text-lg font-normal text-stone-950 tracking-tight">
+                  Scope of Work
+                </h3>
+                {sowPhases.length > 0 && (
+                  <span className="text-[11px] font-mono bg-stone-100 text-stone-700 px-2.5 py-0.5 rounded-full border border-stone-200">
+                    {sowPhases.length} {sowPhases.length === 1 ? 'Phase' : 'Phases'} · {totalSOWActionItems} SOW Items
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-500 mt-1">
+                Direct literal wording and phases pulled from the uploaded SOW contract. Action items are tracked separately from manually created CRM workstreams.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2 shrink-0">
+              {isAdmin && onOpenSOWUpload && (
+                <button
+                  type="button"
+                  onClick={() => onOpenSOWUpload(client.id)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-100 hover:bg-stone-200 text-stone-800 transition-colors cursor-pointer border border-stone-200/80"
+                  title="Upload or update SOW document"
+                >
+                  <Upload className="w-3.5 h-3.5 text-stone-500" />
+                  <span>{sowPhases.length > 0 ? 'Update SOW' : 'Upload SOW'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {sowPhases.length === 0 ? (
+            <div className="p-8 text-center bg-stone-50/60 rounded-xl border border-dashed border-stone-200 space-y-3">
+              <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-stone-700">No Scope of Work phases found</p>
+                <p className="text-[11px] text-stone-500 max-w-md mx-auto">
+                  Upload an SOW document to automatically extract and populate contract phases and literal action items here.
+                </p>
+              </div>
+              {isAdmin && onOpenSOWUpload && (
+                <button
+                  type="button"
+                  onClick={() => onOpenSOWUpload(client.id)}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium bg-stone-900 hover:bg-stone-800 text-white transition-colors cursor-pointer shadow-2xs"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Statement of Work</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {sowPhases.map((phase, pIdx) => {
+                const phaseCompletedCount = phase.items.filter(i => i.status === 'Complete').length;
+                return (
+                  <div key={phase.id || `phase-${pIdx}`} className="space-y-3">
+                    {/* Phase Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-stone-200/80">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 font-bold bg-stone-100 px-2 py-0.5 rounded">
+                          Phase {pIdx + 1}
+                        </span>
+                        <h4 className="text-sm font-semibold text-stone-900">
+                          {phase.name}
+                        </h4>
+                        {phase.timeline && (
+                          <span className="text-[11px] font-mono text-stone-500 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md">
+                            {phase.timeline}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-mono text-stone-500">
+                        {phaseCompletedCount}/{phase.items.length} completed
+                      </span>
+                    </div>
+
+                    {/* Cards for each SOW action item organized under Phase header */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {phase.items.map((item) => {
+                        const isComplete = item.status === 'Complete';
+                        const isInProgress = item.status === 'In Progress';
+                        const isBlocked = item.status === 'Blocked';
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-xl p-4 border transition-all flex flex-col justify-between space-y-3.5 ${
+                              isComplete
+                                ? 'bg-stone-50/70 border-stone-200/60 opacity-85'
+                                : isInProgress
+                                ? 'bg-amber-50/40 border-amber-200/80 shadow-2xs'
+                                : isBlocked
+                                ? 'bg-rose-50/40 border-rose-200/80 shadow-2xs'
+                                : 'bg-white border-stone-200/90 shadow-2xs hover:border-stone-300'
+                            }`}
+                          >
+                            {/* Exact wording from SOW */}
+                            <div className="space-y-2">
+                              <p className={`text-xs leading-relaxed font-normal ${
+                                isComplete ? 'line-through text-stone-400' : 'text-stone-850'
+                              }`}>
+                                {item.wording}
+                              </p>
+
+                              {item.workstream && (
+                                <span className="inline-block text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md">
+                                  {item.workstream}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Simple Layout: Due Date & "In Progress" Dropdown */}
+                            <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-stone-100 text-xs">
+                              {/* Due Date */}
+                              <div className="flex items-center space-x-1.5 text-stone-600">
+                                <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                                <label className="text-[11px] text-stone-500 font-mono">Due:</label>
+                                <input
+                                  type="date"
+                                  value={item.dueDate || ''}
+                                  onChange={(e) => handleUpdateSOWItemDueDate(item.id, e.target.value)}
+                                  className="text-[11px] font-mono bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded px-1.5 py-0.5 text-stone-700 cursor-pointer focus:bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
+                                  title="Change SOW item due date"
+                                />
+                              </div>
+
+                              {/* "In Progress" Dropdown */}
+                              <div className="flex items-center space-x-1.5">
+                                <select
+                                  value={item.status || 'Not Started'}
+                                  onChange={(e) => handleUpdateSOWItemStatus(item.id, e.target.value as SOWItemStatus)}
+                                  className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors ${
+                                    isComplete
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold'
+                                      : isInProgress
+                                      ? 'bg-amber-50 text-amber-900 border-amber-300 font-semibold'
+                                      : isBlocked
+                                      ? 'bg-rose-50 text-rose-800 border-rose-300 font-semibold'
+                                      : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200/70'
+                                  }`}
+                                  title="Update status"
+                                >
+                                  <option value="Not Started">Not Started</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Complete">Complete</option>
+                                  <option value="Blocked">Blocked</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1273,6 +1617,71 @@ export const ClientDetailView: React.FC<ClientDetailViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Permanent Delete Client Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setIsDeleteConfirmOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-6 border border-stone-200 shadow-2xl space-y-4 text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-normal text-stone-950">
+                    Permanently Delete Client?
+                  </h3>
+                  <span className="text-[10px] font-mono text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md font-semibold">
+                    Admin Action · Irreversible
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-stone-600 space-y-2 leading-relaxed">
+              <p>
+                Are you sure you want to permanently delete <strong className="text-stone-950">{client.name}</strong>?
+              </p>
+              <p className="bg-stone-50 border border-stone-200 p-3 rounded-xl text-[11px] text-stone-500 font-mono">
+                This will permanently delete this client card, all <strong className="text-stone-800 font-semibold">{client.tasks?.length || 0}</strong> deliverables, consultant notes, deliverable URLs, and any attached SOW files from Firestore. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeletingClient}
+                className="px-3.5 py-2 text-xs font-medium text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-100 rounded-xl border border-stone-200 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteClient}
+                disabled={isDeletingClient}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-2xs transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingClient ? 'Deleting...' : 'Permanently Delete'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

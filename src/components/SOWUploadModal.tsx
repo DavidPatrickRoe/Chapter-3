@@ -25,7 +25,7 @@ import {
 import { Client, ClientType, TaskPriority, TeamMember } from '../types';
 import { SOWExtractionResult, ExtractedSOWTask } from '../utils/sowParser';
 import { extractSOW, buildClientFromSOW, updateClientWithSOWPhase } from '../services/sowService';
-import { HOME_HEALTH_SOW_TEXT, SAMPLE_SOW_LIST } from '../data/sampleSOW';
+import { GoogleDrivePickerModal, GoogleDriveIcon } from './GoogleDrivePickerModal';
 
 interface SOWUploadModalProps {
   isOpen: boolean;
@@ -58,6 +58,8 @@ export const SOWUploadModal: React.FC<SOWUploadModalProps> = ({
   // SOW text content
   const [sowText, setSowText] = useState<string>('');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [isDriveFile, setIsDriveFile] = useState<boolean>(false);
+  const [isDrivePickerOpen, setIsDrivePickerOpen] = useState<boolean>(false);
   
   // Processing state
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
@@ -87,24 +89,28 @@ export const SOWUploadModal: React.FC<SOWUploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Load sample SOW
-  const handleLoadSample = (sampleText: string) => {
-    setSowText(sampleText);
-    setFileName('Home-Health-SOW.txt');
-  };
 
-  // Handle file drop / file pick
+  // Handle file drop / file pick from local filesystem
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
+    setIsDriveFile(false);
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
       setSowText(content);
     };
     reader.readAsText(file);
+  };
+
+  // Handle file imported from linked Google Drive
+  const handleDriveFileSelect = (content: string, name: string) => {
+    setSowText(content);
+    setFileName(name);
+    setIsDriveFile(true);
+    setExtractionError(null);
   };
 
   // Trigger SOW Analysis
@@ -327,54 +333,31 @@ export const SOWUploadModal: React.FC<SOWUploadModalProps> = ({
                 )}
               </div>
 
-              {/* Quick Sample SOW Loaders Banner */}
-              <div className="bg-stone-50 rounded-xl p-4 border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-stone-900 text-white flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-stone-900">
-                      Sample SOW: Home + Health
-                    </h4>
-                    <p className="text-[11px] text-stone-500">
-                      Pre-loads the Chapter 3 Home + Health SOW text for fast testing.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSample(HOME_HEALTH_SOW_TEXT)}
-                    className="px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-lg text-xs font-medium transition-all shadow-2xs flex items-center space-x-1.5 cursor-pointer active:scale-[0.98]"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Load Home + Health (Phase 1)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSample(SAMPLE_SOW_LIST[1].text)}
-                    className="px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 rounded-lg text-xs font-medium transition-all cursor-pointer"
-                  >
-                    <span>Load Phase 2</span>
-                  </button>
-                </div>
-              </div>
 
               {/* File Dropzone & Paste Area */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-mono uppercase tracking-wider text-stone-600 flex items-center space-x-1.5">
                     <FileText className="w-3.5 h-3.5 text-stone-500" />
                     <span>SOW Document Text *</span>
                   </label>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+                    {/* Option 1: Upload directly from Google Drive */}
+                    <button
+                      type="button"
+                      onClick={() => setIsDrivePickerOpen(true)}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-white hover:bg-stone-50 text-stone-800 text-xs font-medium cursor-pointer transition-all border border-stone-300 shadow-2xs hover:border-stone-400 active:scale-[0.98]"
+                      title="Upload Statement of Work directly from your linked Google Drive account"
+                    >
+                      <GoogleDriveIcon className="w-3.5 h-3.5" />
+                      <span>Upload from Google Drive</span>
+                    </button>
+
+                    {/* Option 2: Upload local file */}
                     <label className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium cursor-pointer transition-colors border border-stone-200">
                       <Upload className="w-3.5 h-3.5 text-stone-500" />
-                      <span>{fileName ? `File: ${fileName}` : 'Upload File (.txt, .md, .docx)'}</span>
+                      <span>{fileName && !isDriveFile ? `File: ${fileName}` : 'Upload File (.txt, .md, .docx)'}</span>
                       <input
                         type="file"
                         accept=".txt,.md,.doc,.docx,.json"
@@ -382,12 +365,14 @@ export const SOWUploadModal: React.FC<SOWUploadModalProps> = ({
                         className="hidden"
                       />
                     </label>
+
                     {sowText && (
                       <button
                         type="button"
                         onClick={() => {
                           setSowText('');
                           setFileName(null);
+                          setIsDriveFile(false);
                         }}
                         className="text-xs text-rose-600 hover:text-rose-800 font-medium px-2 py-1 cursor-pointer"
                       >
@@ -396,6 +381,27 @@ export const SOWUploadModal: React.FC<SOWUploadModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Linked Google Drive File Banner if loaded from Drive */}
+                {fileName && isDriveFile && (
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 text-blue-950 px-3.5 py-2 rounded-xl text-xs">
+                    <div className="flex items-center space-x-2.5 truncate">
+                      <div className="w-5 h-5 rounded-md bg-white border border-blue-200 flex items-center justify-center shrink-0">
+                        <GoogleDriveIcon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-medium truncate">
+                        Linked from Google Drive: <span className="font-semibold text-blue-900">{fileName}</span>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDrivePickerOpen(true)}
+                      className="text-[11px] text-blue-700 hover:text-blue-900 font-medium underline cursor-pointer shrink-0 ml-3"
+                    >
+                      Select Different File
+                    </button>
+                  </div>
+                )}
 
                 <div className="relative">
                   <textarea
@@ -979,6 +985,14 @@ $8,650 CAD flat rate ..."
 
         </div>
       </div>
+
+      {/* Google Drive Picker Modal */}
+      <GoogleDrivePickerModal
+        isOpen={isDrivePickerOpen}
+        onClose={() => setIsDrivePickerOpen(false)}
+        userEmail={currentUser.email}
+        onSelectFile={handleDriveFileSelect}
+      />
     </div>
   );
 };

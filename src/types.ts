@@ -92,6 +92,26 @@ export interface SOWMetadata {
   uploadedAt?: string;
 }
 
+export type SOWItemStatus = 'Not Started' | 'In Progress' | 'Complete' | 'Blocked';
+
+export interface SOWActionItem {
+  id: string;
+  phaseName: string; // Exact phase name from SOW (e.g. "Phase 1: Project Kickoff & Setup (Weeks 1–2)")
+  wording: string; // The exact literal wording from the uploaded SOW without interpretation
+  dueDate: string; // YYYY-MM-DD
+  status: SOWItemStatus;
+  deliverableRef?: string;
+  workstream?: string;
+  order?: number;
+}
+
+export interface SOWPhaseGroup {
+  id: string;
+  name: string; // Exact phase name from SOW
+  timeline?: string;
+  items: SOWActionItem[];
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -104,10 +124,12 @@ export interface Client {
   targetEndDate?: string;
   prospectingStage?: ProspectingStage;
   phases?: string[]; // Custom defined phases for SOW grouping
-  tasks: Task[];
+  sowPhases?: SOWPhaseGroup[]; // Structured SOW phases with literal action items
+  sowItems?: SOWActionItem[]; // Flattened or master list of literal SOW action items
+  tasks: Task[]; // Manually created tasks (separate from literal SOW items)
   sow?: SOWMetadata;
   sowHistory?: SOWMetadata[];
 }
 
-export type ClientCategoryFilter = 'All' | 'Project' | 'Retainer' | 'Internal' | 'Prospecting';
-export type PriorityTasksFilter = 'all' | 'mine' | 'unassigned';
+export type ClientCategoryFilter = 'All' | 'Project' | 'Retainer' | 'Project & Retainer' | 'Internal' | 'Prospecting';
+export type PriorityTasksFilter = 'all' | 'assigned' | 'mine' | 'unassigned';

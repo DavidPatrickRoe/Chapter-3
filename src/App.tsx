@@ -34,8 +34,11 @@ import { LoginScreen } from './components/LoginScreen';
 import { 
   subscribeToClients, 
   saveClientToDb, 
+  deleteClientFromDb,
   saveMultipleClientsToDb, 
-  seedInitialFirestoreDataIfEmpty 
+  seedInitialFirestoreDataIfEmpty,
+  saveUserClientOrder,
+  getUserClientOrder
 } from './firebase/firestoreService';
 import { 
   auth, 
@@ -44,7 +47,7 @@ import {
   onAuthStateChanged, 
   FirebaseUser 
 } from './firebase/config';
-import { AlertCircle, LogIn, X, CheckCircle } from 'lucide-react';
+import { AlertCircle, LogIn, X, CheckCircle, RotateCcw, GripVertical } from 'lucide-react';
 
 const STORAGE_KEY = 'chapter3_consulting_clients_v2';
 const USER_STORAGE_KEY = 'chapter3_active_user_v2';
@@ -277,16 +280,239 @@ export default function App() {
   const [wonProspectToConvert, setWonProspectToConvert] = useState<Partial<Client> | null>(null);
   const [isSOWModalOpen, setIsSOWModalOpen] = useState<boolean>(false);
   const [sowTargetClientId, setSowTargetClientId] = useState<string | undefined>(undefined);
+  const [statusNotification, setStatusNotification] = useState<string | null>(null);
+
+  // Per-user custom card order state
+  const [userCardOrder, setUserCardOrder] = useState<string[]>(() => {
+    if (currentUser?.email) {
+      try {
+        const saved = localStorage.getItem(`chapter3_user_client_order_${currentUser.email.toLowerCase()}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.warn('Failed to parse saved client card order', e);
+      }
+    }
+    return [];
+  });
+
+  // Drag and drop tracking state
+  const [draggedClientId, setDraggedClientId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
+
+  // Sync user card order when active user changes, and fetch from Firestore
+  useEffect(() => {
+    if (!currentUser?.email) {
+      setUserCardOrder([]);
+      return;
+    }
+    const userKey = currentUser.email.toLowerCase();
+    const localKey = `chapter3_user_client_order_${userKey}`;
+    try {
+      const saved = localStorage.getItem(localKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setUserCardOrder(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read local client card order', e);
+    }
+
+    getUserClientOrder(userKey).then(remoteOrder => {
+      if (remoteOrder && remoteOrder.length > 0) {
+        setUserCardOrder(remoteOrder);
+        try {
+          localStorage.setItem(localKey, JSON.stringify(remoteOrder));
+        } catch {}
+      }
+    }).catch(err => {
+      console.warn('Could not fetch remote card order:', err);
+    });
+  }, [currentUser?.email]);
+
+  const handleCardDragStart = (e: React.DragEvent, clientId: string) => {
+    setDraggedClientId(clientId);
+  };
+
+  const handleCardDragOver = (e: React.DragEvent, targetId: string) => {
+    if (!draggedClientId || draggedClientId === targetId) {
+      setDropTargetId(null);
+      setDropPosition(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? 'before' : 'after';
+    setDropTargetId(targetId);
+    setDropPosition(pos);
+  };
+
+  const handleCardDragLeave = (e: React.DragEvent, targetId: string) => {
+    if (dropTargetId === targetId) {
+      setDropTargetId(null);
+      setDropPosition(null);
+    }
+  };
+
+  const handleCardDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedClientId || draggedClientId === targetId) {
+      setDraggedClientId(null);
+      setDropTargetId(null);
+      setDropPosition(null);
+      return;
+    }
+
+    const finalPos = dropPosition || 'before';
+
+    setUserCardOrder((prevOrder) => {
+      const allClientIds = clients.map(c => c.id);
+      let masterList = prevOrder && prevOrder.length > 0 ? [...prevOrder] : [...allClientIds];
+
+      // Ensure any newly added client is in masterList
+      allClientIds.forEach(id => {
+        if (!masterList.includes(id)) {
+          masterList.push(id);
+        }
+      });
+
+      // Remove draggedClientId
+      masterList = masterList.filter(id => id !== draggedClientId);
+
+      // Find target index
+      const targetIdx = masterList.indexOf(targetId);
+      if (targetIdx === -1) {
+        masterList.push(draggedClientId);
+      } else {
+        const insertIdx = finalPos === 'after' ? targetIdx + 1 : targetIdx;
+        masterList.splice(insertIdx, 0, draggedClientId);
+      }
+
+      // Persist to user's localStorage
+      if (currentUser?.email) {
+        const userKey = currentUser.email.toLowerCase();
+        try {
+          localStorage.setItem(`chapter3_user_client_order_${userKey}`, JSON.stringify(masterList));
+        } catch (err) {
+          console.warn('Failed to save user card order locally', err);
+        }
+        // Persist to Firestore
+        saveUserClientOrder(userKey, masterList).catch(err => {
+          console.warn('Failed to save user card order to Firestore:', err);
+        });
+      }
+
+      return masterList;
+    });
+
+    setDraggedClientId(null);
+    setDropTargetId(null);
+    setDropPosition(null);
+  };
+
+  const handleCardDragEnd = () => {
+    setDraggedClientId(null);
+    setDropTargetId(null);
+    setDropPosition(null);
+  };
+
+  const handleResetUserOrder = () => {
+    setUserCardOrder([]);
+    if (currentUser?.email) {
+      const userKey = currentUser.email.toLowerCase();
+      localStorage.removeItem(`chapter3_user_client_order_${userKey}`);
+      saveUserClientOrder(userKey, []).catch(console.warn);
+    }
+  };
 
   // Sync selectedClient with live clients state
   const currentSelectedClient = selectedClient 
     ? clients.find(c => c.id === selectedClient.id) || selectedClient 
     : null;
 
-  // Handler to update a client
+  // Handler to update a client (Strictly blocks non-admin accounts from archiving active clients or reactivating inactive clients)
   const handleUpdateClient = (updatedClient: Client) => {
+    const existingClient = clients.find(c => c.id === updatedClient.id);
+    if (
+      existingClient && 
+      existingClient.status === 'Active' && 
+      updatedClient.status === 'Inactive' && 
+      currentUser?.role !== 'Admin'
+    ) {
+      console.warn('Unauthorized: Non-admin users are not permitted to archive active clients.');
+      setAuthError('Permission denied: Non-admin users are not permitted to archive active clients.');
+      return;
+    }
+
+    if (
+      existingClient && 
+      existingClient.status === 'Inactive' && 
+      updatedClient.status === 'Active' && 
+      currentUser?.role !== 'Admin'
+    ) {
+      console.warn('Unauthorized: Regular users are not permitted to reactivate inactive clients.');
+      setAuthError('Permission denied: Only Admin accounts are permitted to reactivate an inactive client.');
+      return;
+    }
+
+    if (
+      existingClient && 
+      existingClient.name !== updatedClient.name && 
+      currentUser?.role !== 'Admin'
+    ) {
+      console.warn('Unauthorized: Non-admin users are not permitted to rename client engagements.');
+      setAuthError('Permission denied: Only Admin accounts can change the name of an engagement.');
+      return;
+    }
+
+    // Set feedback toast if status changed
+    if (existingClient && existingClient.status !== updatedClient.status) {
+      if (updatedClient.status === 'Inactive') {
+        setStatusNotification(`Moved "${updatedClient.name}" to archive. All associated deliverables have been moved to the Archive Queue.`);
+      } else {
+        setStatusNotification(`Reactivated "${updatedClient.name}". Open deliverables are now active in the Deliverables Queue.`);
+      }
+      setTimeout(() => setStatusNotification(null), 4500);
+    }
+
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
     persistClient(updatedClient);
+  };
+
+  // Handler to permanently delete a client (Admin only)
+  const handleDeleteClient = async (clientId: string) => {
+    if (currentUser?.role !== 'Admin') {
+      setAuthError('Permission denied: Only Admin accounts can permanently delete a client.');
+      return;
+    }
+
+    const clientToDelete = clients.find(c => c.id === clientId);
+    if (!clientToDelete) return;
+
+    // Deselect if currently open in drill-down view
+    if (selectedClient?.id === clientId) {
+      setSelectedClient(null);
+    }
+
+    // Optimistically remove from state
+    setClients(prev => prev.filter(c => c.id !== clientId));
+
+    try {
+      setCloudStatus('syncing');
+      await deleteClientFromDb(clientId);
+      setCloudStatus('connected');
+    } catch (err: any) {
+      console.error('Failed to permanently delete client from Firestore:', err);
+      setCloudStatus('offline');
+      setAuthError(`Failed to delete client: ${err?.message || err}`);
+      // Revert if database delete failed
+      setClients(prev => [clientToDelete, ...prev]);
+    }
   };
 
   // Handler when a prospecting deal is Won to prompt creating a new client card
@@ -613,6 +839,8 @@ export default function App() {
 
           return {
             ...task,
+            status: (task.status === 'Cancelled' ? 'Cancelled' : 'Complete') as TaskStatus,
+            completedAt: task.completedAt || new Date().toISOString().split('T')[0],
             isArchivedFromFeed: true
           };
         }
@@ -639,7 +867,23 @@ export default function App() {
   const activeClientsCount = clients.filter(c => c.status === 'Active').length;
   const inactiveClientsCount = clients.filter(c => c.status === 'Inactive').length;
 
-  const filteredClients = clients.filter(client => {
+  // 1. Order all clients according to current user's custom master card order
+  const orderedClients = React.useMemo(() => {
+    if (!userCardOrder || userCardOrder.length === 0) {
+      return clients;
+    }
+    const orderMap = new Map<string, number>();
+    userCardOrder.forEach((id, idx) => {
+      orderMap.set(id, idx);
+    });
+    return [...clients].sort((a, b) => {
+      const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999999;
+      const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999999;
+      return idxA - idxB;
+    });
+  }, [clients, userCardOrder]);
+
+  const filteredClients = orderedClients.filter(client => {
     // 1. Active vs Inactive toggle rule: Default displays Active. Inactive displays only when filter is enabled.
     if (showInactive) {
       if (client.status !== 'Inactive') return false;
@@ -647,8 +891,12 @@ export default function App() {
       if (client.status !== 'Active') return false;
     }
 
-    // 2. Category filter: All, Project, Retainer, Internal
-    if (categoryFilter !== 'All' && client.type !== categoryFilter) {
+    // 2. Category filter: All, Project, Retainer, Project & Retainer, Internal, Prospecting
+    if (categoryFilter === 'Project & Retainer') {
+      if (client.type !== 'Project' && client.type !== 'Retainer') {
+        return false;
+      }
+    } else if (categoryFilter !== 'All' && client.type !== categoryFilter) {
       return false;
     }
 
@@ -664,10 +912,12 @@ export default function App() {
     return true;
   });
 
-  // Calculate total open tasks for the top navbar indicator
-  const totalOpenAssignedTasks = clients.reduce((acc, c) => {
-    return acc + c.tasks.filter(t => t.assignedTo && !t.isArchivedFromFeed && t.status !== 'Complete' && t.status !== 'Cancelled').length;
-  }, 0);
+  // Calculate total open tasks for the top navbar indicator (active clients only)
+  const totalOpenAssignedTasks = clients
+    .filter(c => c.status === 'Active')
+    .reduce((acc, c) => {
+      return acc + c.tasks.filter(t => t.assignedTo && !t.isArchivedFromFeed && t.status !== 'Complete' && t.status !== 'Cancelled').length;
+    }, 0);
 
   // 1. Initializing auth check splash screen
   if (isAuthInitializing) {
@@ -728,6 +978,7 @@ export default function App() {
         onResetRecurringTask={handleResetRecurringTask}
         onPromptWonProspect={handlePromptWonProspect}
         onOpenSOWUpload={handleOpenSOWModal}
+        onDeleteClient={handleDeleteClient}
         firebaseUser={firebaseUser}
         onSignInGoogle={handleGoogleSignIn}
         onSignOutGoogle={handleGoogleSignOut}
@@ -754,6 +1005,14 @@ export default function App() {
         firebaseUser={firebaseUser}
         onSignInGoogle={handleGoogleSignIn}
         onSignOutGoogle={handleGoogleSignOut}
+        onSelectConsultant={(member) => {
+          setCurrentUser(member);
+          try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(member));
+          } catch (e) {
+            console.warn('Failed to cache user identity', e);
+          }
+        }}
         isSigningIn={isSigningIn}
       />
 
@@ -777,6 +1036,23 @@ export default function App() {
           </div>
         )}
 
+        {/* Status Notification (Client Archival / Reactivation Feedback) */}
+        {statusNotification && (
+          <div className="mb-6 bg-stone-900 text-stone-100 p-3.5 rounded-xl flex items-center justify-between text-xs font-medium shadow-md animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{statusNotification}</span>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setStatusNotification(null)} 
+              className="text-stone-400 hover:text-white cursor-pointer p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Two-Column Split View: LEFT COLUMN (Clients) | RIGHT COLUMN (Priority Tasks Feed) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
@@ -787,22 +1063,39 @@ export default function App() {
             <div className="bg-white rounded-2xl p-5 border border-stone-200/90 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-normal text-stone-950 font-serif tracking-tight flex items-center space-x-2">
-                    <span>{showInactive ? 'Archived Accounts' : 'Client Engagements'}</span>
-                    <span className="text-xs font-mono text-stone-400 tabular-nums">
-                      ({filteredClients.length})
+                  <div className="flex items-center space-x-2.5">
+                    <h2 className="text-xl font-normal text-stone-950 font-serif tracking-tight flex items-center space-x-2">
+                      <span>{showInactive ? 'Archived Accounts' : 'Client Engagements'}</span>
+                      <span className="text-xs font-mono text-stone-400 tabular-nums">
+                        ({filteredClients.length})
+                      </span>
+                    </h2>
+                    {userCardOrder.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleResetUserOrder}
+                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-mono text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/80 transition-colors cursor-pointer"
+                        title="Reset cards to default order"
+                      >
+                        <RotateCcw className="w-3 h-3 text-stone-400" />
+                        <span>Reset Order</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5 flex items-center space-x-1 flex-wrap">
+                    <span>
+                      {showInactive
+                        ? 'Completed engagements and past client archives'
+                        : 'Active client retainers, project delivery, and practice initiatives'}
                     </span>
-                  </h2>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    {showInactive
-                      ? 'Completed engagements and past client archives'
-                      : 'Active client retainers, project delivery, and practice initiatives'}
+                    <span className="text-stone-300">·</span>
+                    <span className="text-stone-500">Drag cards to reorder</span>
                   </p>
                 </div>
 
                 {/* Category Selector Tabs */}
                 <div className="flex items-center space-x-1 bg-stone-100 p-1 rounded-xl text-xs font-medium self-start sm:self-auto overflow-x-auto">
-                  {(['All', 'Project', 'Retainer', 'Internal', 'Prospecting'] as const).map((category) => (
+                  {(['All', 'Project', 'Retainer', 'Project & Retainer', 'Internal', 'Prospecting'] as const).map((category) => (
                     <button
                       key={category}
                       type="button"
@@ -813,7 +1106,7 @@ export default function App() {
                           : 'text-stone-500 hover:text-stone-800'
                       }`}
                     >
-                      {category}
+                      {category === 'Prospecting' ? 'Prospect' : category}
                     </button>
                   ))}
                 </div>
@@ -863,10 +1156,19 @@ export default function App() {
                   <ClientCard
                     key={client.id}
                     client={client}
+                    currentUser={currentUser}
                     teamMembers={teamMembers}
                     onSelectClient={(c) => setSelectedClient(c)}
                     onUpdateClient={handleUpdateClient}
                     onPromptWonProspect={handlePromptWonProspect}
+                    onDeleteClient={handleDeleteClient}
+                    isDragging={draggedClientId === client.id}
+                    dropPosition={dropTargetId === client.id ? dropPosition : null}
+                    onDragStartCard={handleCardDragStart}
+                    onDragOverCard={handleCardDragOver}
+                    onDragLeaveCard={handleCardDragLeave}
+                    onDropCard={handleCardDrop}
+                    onDragEndCard={handleCardDragEnd}
                   />
                 ))
               )}
@@ -881,6 +1183,8 @@ export default function App() {
               clients={clients}
               currentUser={currentUser}
               teamMembers={teamMembers}
+              showInactive={showInactive}
+              onToggleShowInactive={setShowInactive}
               onUpdateTaskStatus={handleUpdateTaskStatus}
               onUpdateTaskAssignee={handleUpdateTaskAssignee}
               onAddNote={handleAddNote}

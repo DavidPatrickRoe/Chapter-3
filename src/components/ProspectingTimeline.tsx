@@ -1,9 +1,11 @@
 import React from 'react';
-import { Check, XCircle, Trophy, Archive, ArrowRight } from 'lucide-react';
-import { Client, ProspectingStage } from '../types';
+import { Check, XCircle, Trophy, Archive, ArrowRight, Lock } from 'lucide-react';
+import { Client, ProspectingStage, TeamMember } from '../types';
 
 interface ProspectingTimelineProps {
   client: Client;
+  currentUser?: TeamMember;
+  isAdmin?: boolean;
   onUpdateClient?: (client: Client) => void;
   onPromptWonProspect?: (client: Client) => void;
   compact?: boolean;
@@ -19,10 +21,13 @@ export const STAGES: ProspectingStage[] = [
 
 export const ProspectingTimeline: React.FC<ProspectingTimelineProps> = ({
   client,
+  currentUser,
+  isAdmin: propIsAdmin,
   onUpdateClient,
   onPromptWonProspect,
   compact = false
 }) => {
+  const isAdmin = propIsAdmin ?? (currentUser?.role === 'Admin');
   const currentStage: ProspectingStage = client.prospectingStage || 'Discovery';
 
   const handleStageClick = (stage: ProspectingStage, e: React.MouseEvent) => {
@@ -43,6 +48,14 @@ export const ProspectingTimeline: React.FC<ProspectingTimelineProps> = ({
   const handleManualArchive = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onUpdateClient) return;
+    // Security check: non-admin users must not be allowed to archive active clients
+    if (client.status === 'Active' && !isAdmin) {
+      return;
+    }
+    // Also restrict unarchiving to admins for consistent RBAC
+    if (!isAdmin) {
+      return;
+    }
     onUpdateClient({
       ...client,
       status: client.status === 'Active' ? 'Inactive' : 'Active'
@@ -160,14 +173,25 @@ export const ProspectingTimeline: React.FC<ProspectingTimelineProps> = ({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={handleManualArchive}
-              className="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-medium bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 transition-colors cursor-pointer"
-            >
-              <Archive className="w-2.5 h-2.5 text-stone-400" />
-              <span>{client.status === 'Inactive' ? 'Unarchive' : 'Archive'}</span>
-            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={handleManualArchive}
+                className="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-medium bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 transition-colors cursor-pointer"
+                title={client.status === 'Inactive' ? 'Reactivate prospecting deal' : 'Archive prospecting deal (Admin)'}
+              >
+                <Archive className="w-2.5 h-2.5 text-stone-400" />
+                <span>{client.status === 'Inactive' ? 'Unarchive' : 'Archive'}</span>
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-mono text-stone-400 bg-stone-100 border border-stone-200 select-none"
+                title={client.status === 'Inactive' ? "Non-admin users cannot reactivate inactive clients" : "Non-admin users cannot archive active clients"}
+              >
+                <Lock className="w-2.5 h-2.5 text-stone-400" />
+                <span>{client.status === 'Inactive' ? 'Reactivation Locked' : 'Archival Locked'}</span>
+              </span>
+            )}
           </div>
         </div>
       )}

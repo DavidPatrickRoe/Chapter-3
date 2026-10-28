@@ -28,12 +28,13 @@ interface NavbarProps {
   firebaseUser?: FirebaseUser | null;
   onSignInGoogle?: () => void;
   onSignOutGoogle?: () => void;
+  onSelectConsultant?: (member: TeamMember) => void;
   isSigningIn?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
-  teamMembers: _teamMembers,
+  teamMembers,
   showInactive,
   onToggleShowInactive,
   onOpenAddClient,
@@ -45,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   firebaseUser,
   onSignInGoogle,
   onSignOutGoogle,
+  onSelectConsultant,
   isSigningIn = false
 }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -247,6 +249,47 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span className="text-stone-400">Locked Identity</span>
                       </div>
                     </div>
+
+                    {/* Consultant Switcher for Role Testing */}
+                    {onSelectConsultant && (
+                      <div className="mb-2 pb-2 border-b border-stone-100">
+                        <div className="px-1 mb-1.5 flex items-center justify-between text-[10px] font-mono uppercase text-stone-400">
+                          <span>Switch Role Persona</span>
+                          <span className="text-[9px] text-stone-400 font-normal">RBAC Testing</span>
+                        </div>
+                        <div className="space-y-1">
+                          {teamMembers.map((member) => (
+                            <button
+                              key={member.id}
+                              type="button"
+                              onClick={() => {
+                                onSelectConsultant(member);
+                                setProfileDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                                currentUser.id === member.id || currentUser.email === member.email
+                                  ? 'bg-stone-100 text-stone-900 font-semibold'
+                                  : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2 truncate">
+                                <span className="w-5 h-5 rounded-full bg-stone-800 text-white font-mono text-[9px] flex items-center justify-center shrink-0">
+                                  {member.initials}
+                                </span>
+                                <span className="truncate">{member.name}</span>
+                              </div>
+                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                member.role === 'Admin' 
+                                  ? 'bg-stone-900 text-white' 
+                                  : 'bg-stone-200 text-stone-700'
+                              }`}>
+                                {member.role}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Sign Out Button */}
                     <button

@@ -56,6 +56,146 @@ export const INITIAL_CLIENTS: Client[] = [
       'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
       'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)'
     ],
+    sowPhases: [
+      {
+        id: 'phase-hh-1',
+        name: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+        timeline: 'Month 1: Weeks 1–2',
+        items: [
+          {
+            id: 'sow-hh-act-1',
+            phaseName: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+            wording: 'Complete HubSpot CRM database segmentation and audit email templates.',
+            dueDate: '2026-09-12',
+            status: 'In Progress',
+            deliverableRef: 'CRM Segmentation',
+            workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+            order: 0
+          },
+          {
+            id: 'sow-hh-act-2',
+            phaseName: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+            wording: 'Define direct mail target geographies and draft initial PR media pitching.',
+            dueDate: '2026-09-14',
+            status: 'In Progress',
+            deliverableRef: 'Geographic & Audience Targeting',
+            workstream: '2. Targeted Direct Mail Campaigns',
+            order: 1
+          },
+          {
+            id: 'sow-hh-act-3',
+            phaseName: 'Phase 1: Project Kickoff & Setup (Weeks 1–2)',
+            wording: 'Complete the database segmentation work initiated during Ciara\'s internship, organizing contacts into precise active/inactive, provider/client, and institutional referral categories.',
+            dueDate: '2026-09-15',
+            status: 'Not Started',
+            deliverableRef: 'CRM Segmentation',
+            workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+            order: 2
+          }
+        ]
+      },
+      {
+        id: 'phase-hh-2',
+        name: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+        timeline: 'Month 1: Weeks 3–4',
+        items: [
+          {
+            id: 'sow-hh-act-4',
+            phaseName: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+            wording: 'Design direct mail print creative and event marketing collateral.',
+            dueDate: '2026-09-24',
+            status: 'Not Started',
+            deliverableRef: 'Creative Asset Development',
+            workstream: '2. Targeted Direct Mail Campaigns',
+            order: 0
+          },
+          {
+            id: 'sow-hh-act-5',
+            phaseName: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+            wording: 'Finalize automated HubSpot workflow configurations and continue media/podcast outreach.',
+            dueDate: '2026-09-26',
+            status: 'Not Started',
+            deliverableRef: 'Automated Workflow Configuration',
+            workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+            order: 1
+          },
+          {
+            id: 'sow-hh-act-6',
+            phaseName: 'Phase 2: Campaign Development & Asset Production (Weeks 3–4)',
+            wording: 'Identify and evaluate relevant local job fairs, university recruitment events, and community gatherings. Build a 6-month event calendar, identifying relevant events and opportunities for Home + Health to pursue beyond the engagement period.',
+            dueDate: '2026-09-28',
+            status: 'Not Started',
+            deliverableRef: 'Event Identification & Evaluation',
+            workstream: '3. Event-Based Recruitment & Community Outreach',
+            order: 2
+          }
+        ]
+      },
+      {
+        id: 'phase-hh-3',
+        name: 'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+        timeline: 'Month 2: Weeks 5–6',
+        items: [
+          {
+            id: 'sow-hh-act-7',
+            phaseName: 'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+            wording: 'Launch direct mail distribution via Canada Post Precision Targeter.',
+            dueDate: '2026-10-08',
+            status: 'Not Started',
+            deliverableRef: 'Canada Post Coordination',
+            workstream: '2. Targeted Direct Mail Campaigns',
+            order: 0
+          },
+          {
+            id: 'sow-hh-act-8',
+            phaseName: 'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+            wording: 'Develop plans and materials for targeted recruitment events.',
+            dueDate: '2026-10-12',
+            status: 'Not Started',
+            deliverableRef: 'Marketing Collateral & Booth Assets',
+            workstream: '3. Event-Based Recruitment & Community Outreach',
+            order: 1
+          },
+          {
+            id: 'sow-hh-act-9',
+            phaseName: 'Phase 3: Campaign Execution & Outreach (Weeks 5–6)',
+            wording: 'Design and coordinate a low-cost media campaign targeting provincial news outlets, highlighting Nova Scotia\'s senior care crisis and positioning Home + Health as a tech-enabled solution to the home care waitlist and hospital discharge bottlenecks.',
+            dueDate: '2026-10-16',
+            status: 'Not Started',
+            deliverableRef: 'PR Campaign',
+            workstream: '1. Coordinated PR & Brand Awareness',
+            order: 2
+          }
+        ]
+      },
+      {
+        id: 'phase-hh-4',
+        name: 'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)',
+        timeline: 'Month 2: Weeks 7–8',
+        items: [
+          {
+            id: 'sow-hh-act-10',
+            phaseName: 'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)',
+            wording: 'Finalize PR media placements, conduct HubSpot data flow audit, and complete transition of campaign assets and workflows to the internal team.',
+            dueDate: '2026-10-22',
+            status: 'Not Started',
+            deliverableRef: 'Integration & Data Flow Audit',
+            workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+            order: 0
+          },
+          {
+            id: 'sow-hh-act-11',
+            phaseName: 'Phase 4: Optimization, Hand-Off & Wrap-Up (Weeks 7–8)',
+            wording: 'Validate technical configurations to ensure seamless list segmentation, proper opt-in management, and high deliverability rates across all automated campaigns.',
+            dueDate: '2026-10-26',
+            status: 'Not Started',
+            deliverableRef: 'List Connectivity & Deliverability',
+            workstream: '4. HubSpot Segmentation & Automated Email Campaigns',
+            order: 1
+          }
+        ]
+      }
+    ],
     sow: {
       id: 'sow-hh-1',
       title: 'Home + Health SOW — Campaign Execution & Strategic Advisory',

@@ -7,7 +7,9 @@ import {
   SOWSignatory, 
   SOWPricing, 
   TeamMember,
-  Task
+  Task,
+  SOWActionItem,
+  SOWPhaseGroup
 } from '../types';
 
 export interface ExtractedSOWTask {
@@ -30,6 +32,8 @@ export interface SOWExtractionResult {
   leadConsultant: string;
   projectSummary: string;
   phases: string[];
+  sowPhases: SOWPhaseGroup[];
+  sowItems: SOWActionItem[];
   pricing?: SOWPricing;
   signatories: SOWSignatory[];
   milestones: SOWMilestone[];
@@ -420,6 +424,106 @@ export function parseSOWHeuristic(
     });
   }
 
+  // 8. Build literal SOW phases and action items without interpretation
+  const sowPhases: SOWPhaseGroup[] = [];
+  const sowItems: SOWActionItem[] = [];
+
+  if (milestones.length > 0) {
+    milestones.forEach((ms, mIdx) => {
+      const phaseName = phases[mIdx] || `${ms.milestone} (${ms.timeline})`;
+      const phaseItems: SOWActionItem[] = [];
+      const phaseDueDate = new Date(today);
+      phaseDueDate.setDate(phaseDueDate.getDate() + (mIdx + 1) * 14);
+      const dueDateStr = phaseDueDate.toISOString().split('T')[0];
+
+      // Literal activities from milestone keyActivities without interpretation
+      const literalActivities = ms.keyActivities
+        .split(/(?<=[.?!])\s+/)
+        .map(a => a.trim())
+        .filter(a => a.length > 5);
+
+      literalActivities.forEach((act, actIdx) => {
+        const item: SOWActionItem = {
+          id: `sow-act-${mIdx + 1}-${actIdx + 1}-${Date.now().toString(36)}`,
+          phaseName,
+          wording: act,
+          dueDate: dueDateStr,
+          status: 'Not Started',
+          deliverableRef: ms.milestone,
+          workstream: 'Milestone Execution & Governance',
+          order: actIdx
+        };
+        phaseItems.push(item);
+        sowItems.push(item);
+      });
+
+      sowPhases.push({
+        id: `phase-${mIdx + 1}`,
+        name: phaseName,
+        timeline: ms.timeline,
+        items: phaseItems
+      });
+    });
+  } else if (phases.length > 0) {
+    const itemsPerPhase = Math.max(1, Math.ceil(deliverables.length / phases.length));
+    phases.forEach((pName, pIdx) => {
+      const phaseDueDate = new Date(today);
+      phaseDueDate.setDate(phaseDueDate.getDate() + (pIdx + 1) * 14);
+      const dueDateStr = phaseDueDate.toISOString().split('T')[0];
+      const sliceStart = pIdx * itemsPerPhase;
+      const phaseDelivs = deliverables.slice(sliceStart, sliceStart + itemsPerPhase);
+      const phaseItems: SOWActionItem[] = [];
+
+      phaseDelivs.forEach((d, dIdx) => {
+        const wording = d.title ? `${d.title}: ${d.description}` : d.description;
+        const item: SOWActionItem = {
+          id: `sow-act-${pIdx + 1}-${dIdx + 1}-${Date.now().toString(36)}`,
+          phaseName: pName,
+          wording,
+          dueDate: dueDateStr,
+          status: 'Not Started',
+          deliverableRef: d.title,
+          workstream: d.workstream,
+          order: dIdx
+        };
+        phaseItems.push(item);
+        sowItems.push(item);
+      });
+
+      sowPhases.push({
+        id: `phase-${pIdx + 1}`,
+        name: pName,
+        items: phaseItems
+      });
+    });
+  } else if (deliverables.length > 0) {
+    const pName = 'Phase 1: Scope Deliverables';
+    const phaseDueDate = new Date(today);
+    phaseDueDate.setDate(phaseDueDate.getDate() + 14);
+    const dueDateStr = phaseDueDate.toISOString().split('T')[0];
+    const phaseItems: SOWActionItem[] = deliverables.map((d, dIdx) => {
+      const wording = d.title ? `${d.title}: ${d.description}` : d.description;
+      const item: SOWActionItem = {
+        id: `sow-act-1-${dIdx + 1}-${Date.now().toString(36)}`,
+        phaseName: pName,
+        wording,
+        dueDate: dueDateStr,
+        status: 'Not Started',
+        deliverableRef: d.title,
+        workstream: d.workstream,
+        order: dIdx
+      };
+      sowItems.push(item);
+      return item;
+    });
+
+    sowPhases.push({
+      id: 'phase-1',
+      name: pName,
+      items: phaseItems
+    });
+  }
+
   return {
     clientName,
     engagementTitle,
@@ -428,6 +532,8 @@ export function parseSOWHeuristic(
     leadConsultant,
     projectSummary,
     phases,
+    sowPhases,
+    sowItems,
     pricing,
     signatories,
     milestones,

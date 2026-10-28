@@ -51,13 +51,43 @@ export async function extractSOW(
     const json = await res.json();
     if (json.mode === 'gemini' && json.extracted) {
       const ext = json.extracted;
-
-      // Transform raw extracted tasks into ExtractedSOWTask format
       const today = new Date();
+
+      // Literal SOW phases and action items without interpretation
+      let extractedSOWPhases = fallbackResult.sowPhases || [];
+      let extractedSOWItems = fallbackResult.sowItems || [];
+
+      if (Array.isArray(ext.sowPhases) && ext.sowPhases.length > 0) {
+        extractedSOWPhases = ext.sowPhases.map((sp: any, pIdx: number) => {
+          const phaseName = sp.name || `Phase ${pIdx + 1}`;
+          const items = (sp.items || []).map((item: any, iIdx: number) => {
+            const due = new Date(today);
+            due.setDate(due.getDate() + (typeof item.dayOffset === 'number' ? item.dayOffset : (pIdx + 1) * 14));
+            return {
+              id: `sow-act-${pIdx + 1}-${iIdx + 1}-${Date.now().toString(36)}`,
+              phaseName,
+              wording: item.wording || item.description || 'Deliverable Item',
+              dueDate: due.toISOString().split('T')[0],
+              status: (item.status === 'Complete' || item.status === 'In Progress' || item.status === 'Blocked') ? item.status : 'Not Started',
+              deliverableRef: item.deliverableRef,
+              workstream: item.workstream,
+              order: iIdx
+            };
+          });
+          return {
+            id: `phase-${pIdx + 1}`,
+            name: phaseName,
+            timeline: sp.timeline,
+            items
+          };
+        });
+        extractedSOWItems = extractedSOWPhases.flatMap(p => p.items);
+      }
+
+      // Legacy fallback task preview
       const mappedTasks: ExtractedSOWTask[] = (ext.tasks || []).map((t: any, idx: number) => {
         const due = new Date(today);
         due.setDate(due.getDate() + (typeof t.dayOffset === 'number' ? t.dayOffset : 14));
-        
         return {
           tempId: `gemini-t-${idx + 1}`,
           description: t.description || 'Deliverable Task',
@@ -65,7 +95,7 @@ export async function extractSOW(
           phase: t.phase || (ext.phases && ext.phases[0]) || 'Phase 1: Project Kickoff',
           priority: (t.priority === 'High' || t.priority === 'Medium' || t.priority === 'Low') ? t.priority : 'Medium',
           dueDate: due.toISOString().split('T')[0],
-          assignedTo: null, // Strictly default to Unassigned
+          assignedTo: null,
           deliverableRef: t.deliverableRef,
           isRecurring: Boolean(t.isRecurring)
         };
@@ -79,6 +109,8 @@ export async function extractSOW(
         leadConsultant: ext.leadConsultant || fallbackResult.leadConsultant,
         projectSummary: ext.projectSummary || fallbackResult.projectSummary,
         phases: (ext.phases && ext.phases.length > 0) ? ext.phases : fallbackResult.phases,
+        sowPhases: extractedSOWPhases,
+        sowItems: extractedSOWItems,
         pricing: ext.pricing || fallbackResult.pricing,
         signatories: (ext.signatories && ext.signatories.length > 0) ? ext.signatories : fallbackResult.signatories,
         milestones: (ext.milestones && ext.milestones.length > 0) ? ext.milestones : fallbackResult.milestones,
@@ -113,13 +145,13 @@ export async function extractSOW(
 
 /**
  * Builds a fresh new Client and Task records from an accepted SOW extraction result.
+ * Tasks are manually created by the user, while literal SOW items are placed under Scope of Work.
  */
 export function buildClientFromSOW(
   result: SOWExtractionResult,
   customTasks?: ExtractedSOWTask[]
 ): { client: Client; tasks: Task[] } {
   const clientId = `c-${Date.now().toString(36)}`;
-  const tasksToUse = customTasks || result.tasks;
 
   const sowMetadata: SOWMetadata = {
     id: `sow-${Date.now().toString(36)}`,
@@ -136,30 +168,6 @@ export function buildClientFromSOW(
     uploadedAt: new Date().toISOString()
   };
 
-  const tasks: Task[] = tasksToUse.map((t, idx) => ({
-    id: `t-${Date.now().toString(36)}-${idx}`,
-    clientId,
-    description: t.description,
-    priority: t.priority,
-    dueDate: t.dueDate,
-    assignedTo: t.assignedTo,
-    status: 'Not Started',
-    phase: t.phase,
-    workstream: t.workstream,
-    sowDeliverableRef: t.deliverableRef,
-    isRecurring: t.isRecurring,
-    notes: [
-      {
-        id: `n-${Date.now().toString(36)}-${idx}`,
-        authorEmail: 'sow-engine@chapter3.ca',
-        authorName: 'Chapter 3 SOW Engine',
-        text: `Extracted from SOW deliverable [${t.workstream}]. Target milestone: ${t.phase}.`,
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
-      }
-    ],
-    createdAt: new Date().toISOString().split('T')[0]
-  }));
-
   const client: Client = {
     id: clientId,
     name: result.clientName,
@@ -170,16 +178,18 @@ export function buildClientFromSOW(
     leadConsultant: result.leadConsultant,
     startDate: new Date().toISOString().split('T')[0],
     phases: result.phases,
-    tasks,
+    sowPhases: result.sowPhases,
+    sowItems: result.sowItems,
+    tasks: [], // Tasks in the task list on both customer card and priority list will be manually created
     sow: sowMetadata,
     sowHistory: [sowMetadata]
   };
 
-  return { client, tasks };
+  return { client, tasks: [] };
 }
 
 /**
- * Updates an existing Client by appending a new SOW phase and merging or adding new tasks.
+ * Updates an existing Client by appending a new SOW phase and literal action items.
  */
 export function updateClientWithSOWPhase(
   existingClient: Client,
@@ -187,8 +197,6 @@ export function updateClientWithSOWPhase(
   customTasks?: ExtractedSOWTask[],
   phaseStrategy: 'append_phases' | 'replace_phases' = 'append_phases'
 ): Client {
-  const tasksToUse = customTasks || result.tasks;
-
   const newSowMetadata: SOWMetadata = {
     id: `sow-${Date.now().toString(36)}`,
     title: result.engagementTitle,
@@ -204,30 +212,6 @@ export function updateClientWithSOWPhase(
     uploadedAt: new Date().toISOString()
   };
 
-  const newTasks: Task[] = tasksToUse.map((t, idx) => ({
-    id: `t-${Date.now().toString(36)}-${idx}`,
-    clientId: existingClient.id,
-    description: t.description,
-    priority: t.priority,
-    dueDate: t.dueDate,
-    assignedTo: t.assignedTo,
-    status: 'Not Started',
-    phase: t.phase,
-    workstream: t.workstream,
-    sowDeliverableRef: t.deliverableRef,
-    isRecurring: t.isRecurring,
-    notes: [
-      {
-        id: `n-${Date.now().toString(36)}-${idx}`,
-        authorEmail: 'sow-engine@chapter3.ca',
-        authorName: 'Chapter 3 SOW Engine',
-        text: `Added via SOW update [${result.engagementTitle}]. Workstream: ${t.workstream}.`,
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
-      }
-    ],
-    createdAt: new Date().toISOString().split('T')[0]
-  }));
-
   // Merge phases without duplicates
   let updatedPhases = existingClient.phases ? [...existingClient.phases] : [];
   if (phaseStrategy === 'replace_phases') {
@@ -240,8 +224,18 @@ export function updateClientWithSOWPhase(
     }
   }
 
-  // Prepend new tasks to existing tasks
-  const updatedTasks = [...newTasks, ...existingClient.tasks];
+  // Merge SOW Phases & literal items
+  const existingSowPhases = existingClient.sowPhases || [];
+  const incomingSowPhases = result.sowPhases || [];
+  let updatedSowPhases: any[];
+
+  if (phaseStrategy === 'replace_phases') {
+    updatedSowPhases = incomingSowPhases;
+  } else {
+    updatedSowPhases = [...existingSowPhases, ...incomingSowPhases];
+  }
+
+  const updatedSowItems = updatedSowPhases.flatMap(p => p.items);
 
   // Update sow history
   const previousHistory = existingClient.sowHistory || (existingClient.sow ? [existingClient.sow] : []);
@@ -251,7 +245,9 @@ export function updateClientWithSOWPhase(
     ...existingClient,
     projectSummary: result.projectSummary || existingClient.projectSummary,
     phases: updatedPhases,
-    tasks: updatedTasks,
+    sowPhases: updatedSowPhases,
+    sowItems: updatedSowItems,
+    tasks: existingClient.tasks || [], // Preserve existing manually created tasks!
     sow: newSowMetadata,
     sowHistory: updatedHistory
   };

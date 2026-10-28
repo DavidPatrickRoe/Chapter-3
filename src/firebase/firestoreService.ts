@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
@@ -230,6 +231,45 @@ export async function checkFirestoreConnection(): Promise<boolean> {
   } catch (error) {
     console.error('Firestore connection check failed:', error);
     return false;
+  }
+}
+
+/**
+ * Save user custom card order to Firestore
+ */
+export async function saveUserClientOrder(userEmailOrId: string, order: string[]): Promise<void> {
+  const safeKey = userEmailOrId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const settingPath = `settings/client_order_${safeKey}`;
+  try {
+    const orderDocRef = doc(db, 'settings', `client_order_${safeKey}`);
+    await setDoc(orderDocRef, {
+      userId: userEmailOrId,
+      order,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, settingPath);
+  }
+}
+
+/**
+ * Get user custom card order from Firestore
+ */
+export async function getUserClientOrder(userEmailOrId: string): Promise<string[] | null> {
+  const safeKey = userEmailOrId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  try {
+    const orderDocRef = doc(db, 'settings', `client_order_${safeKey}`);
+    const snap = await getDoc(orderDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data?.order)) {
+        return data.order as string[];
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn('Could not fetch user client order from DB:', error);
+    return null;
   }
 }
 

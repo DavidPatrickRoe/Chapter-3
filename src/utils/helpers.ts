@@ -7,14 +7,88 @@ export const PRIORITY_WEIGHTS: Record<TaskPriority, number> = {
   Unassigned: 0,
 };
 
+export function getClientSOWPhases(client: Client) {
+  if (client.sowPhases && client.sowPhases.length > 0) {
+    return client.sowPhases;
+  }
+  if (client.sowItems && client.sowItems.length > 0) {
+    const groups: Record<string, typeof client.sowItems> = {};
+    client.sowItems.forEach(item => {
+      const p = item.phaseName || 'Phase 1: Project Scope';
+      if (!groups[p]) groups[p] = [];
+      groups[p].push(item);
+    });
+    return Object.entries(groups).map(([name, items], idx) => ({
+      id: `phase-${idx + 1}`,
+      name,
+      items
+    }));
+  }
+  if (client.sow?.milestones && client.sow.milestones.length > 0) {
+    return client.sow.milestones.map((ms, idx) => {
+      const phaseName = client.phases?.[idx] || `${ms.milestone} (${ms.timeline})`;
+      const acts = ms.keyActivities.split(/(?<=[.?!])\s+/).filter(a => a.trim().length > 5);
+      const items = acts.map((act, aIdx) => ({
+        id: `sow-legacy-ms-${idx}-${aIdx}`,
+        phaseName,
+        wording: act.trim(),
+        dueDate: client.targetEndDate || '2026-10-31',
+        status: 'Not Started' as const,
+        deliverableRef: ms.milestone
+      }));
+      return {
+        id: `phase-${idx + 1}`,
+        name: phaseName,
+        timeline: ms.timeline,
+        items
+      };
+    });
+  }
+  if (client.sow?.deliverables && client.sow.deliverables.length > 0) {
+    const phaseName = client.phases?.[0] || 'Phase 1: Scope Deliverables';
+    const items = client.sow.deliverables.map((d, dIdx) => ({
+      id: `sow-legacy-deliv-${dIdx}`,
+      phaseName,
+      wording: d.title ? `${d.title}: ${d.description}` : d.description,
+      dueDate: client.targetEndDate || '2026-10-31',
+      status: 'Not Started' as const,
+      deliverableRef: d.title,
+      workstream: d.workstream
+    }));
+    return [{
+      id: 'phase-1',
+      name: phaseName,
+      items
+    }];
+  }
+  return [];
+}
+
 export function getProjectCompletionStats(client: Client) {
+  const sowItems = client.sowItems || (client.sowPhases ? client.sowPhases.flatMap(p => p.items) : []);
+  if (sowItems.length > 0) {
+    const totalTasks = sowItems.length;
+    const completedTasks = sowItems.filter(i => i.status === 'Complete').length;
+    const inProgressTasks = sowItems.filter(i => i.status === 'In Progress').length;
+    const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+    return {
+      totalTasks,
+      completedTasks,
+      inProgressTasks,
+      openTasks: totalTasks - completedTasks,
+      percentage
+    };
+  }
+
   const totalTasks = client.tasks.length;
   const completedTasks = client.tasks.filter(t => t.status === 'Complete').length;
+  const inProgressTasks = client.tasks.filter(t => t.status === 'In Progress').length;
   const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
   
   return {
     totalTasks,
     completedTasks,
+    inProgressTasks,
     openTasks: totalTasks - completedTasks,
     percentage
   };
@@ -87,7 +161,7 @@ export function isDueToday(dueDateStr: string): boolean {
   return dueDateStr === today;
 }
 
-export function sortPriorityTasks(tasks: (Task & { clientName?: string; clientType?: string })[]): (Task & { clientName?: string; clientType?: string })[] {
+export function sortPriorityTasks<T extends Task>(tasks: T[]): T[] {
   return [...tasks].sort((a, b) => {
     // 1. Strict Priority sorting: High (3) -> Medium (2) -> Low (1)
     const priorityDiff = PRIORITY_WEIGHTS[b.priority] - PRIORITY_WEIGHTS[a.priority];

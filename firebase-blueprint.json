@@ -36,6 +36,17 @@
         "initials": { "type": "string" }
       },
       "required": ["id", "name", "email", "role"]
+    },
+    "UserSetting": {
+      "title": "UserSetting",
+      "description": "Per-user preference settings such as custom dashboard client card ordering",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "order": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
     }
   },
   "firestore": {
@@ -46,6 +57,10 @@
     "/teamMembers/{memberId}": {
       "schema": "TeamMember",
       "description": "Directory of consultants and their permissions"
+    },
+    "/settings/{settingId}": {
+      "schema": "UserSetting",
+      "description": "User preference settings such as custom card drag-and-drop order"
     }
   }
 }
